@@ -1,5 +1,4 @@
 # Copyright 2019 Sergio Teruel <sergio.teruel@tecnativa.com>
-# License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
 {
     "name": "Stock Barcodes",
     "summary": "It provides read barcode on stock operations.",
@@ -23,6 +22,7 @@
         # Keep order
         "data/stock_barcodes_action.xml",
         "data/stock_barcodes_option.xml",
+        "views/res_config_settings_views.xml",
         "views/stock_barcodes_menu.xml",
     ],
     "assets": {
@@ -40,3 +40,4 @@
     "installable": True,
     "pre_init_hook": "pre_init_hook",
 }
+# License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).

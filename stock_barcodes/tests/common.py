@@ -103,6 +103,9 @@ class TestCommonStockBarcodes(TransactionCase):
         cls.wiz_scan = cls.WizScanReadPicking.create(
             {"option_group_id": cls.option_group.id, "step": 1}
         )
+        cls.location_hash = (
+            "#id=17&model=wiz.stock.barcodes.read.inventory&view_type=form"
+        )
 
     @classmethod
     def _create_barcode_option_group(cls):
@@ -165,3 +168,13 @@ class TestCommonStockBarcodes(TransactionCase):
         # Method to call all methods outside of onchange environment for pickings read
         if wizard._name != "wiz.stock.barcodes.new.lot":
             wizard.dummy_on_barcode_scanned()
+
+    def camera_barcode_scanner(self, location_hash=""):
+        if location_hash:
+            wiz_stock_id = location_hash.split("id=")[1].split("&")[0]
+            wiz_model_name = location_hash.split("model=")[1].split("&")[0]
+            if not wiz_stock_id or not wiz_model_name:
+                return False
+            return True
+        else:
+            return False

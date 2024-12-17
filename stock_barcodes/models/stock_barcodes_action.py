@@ -41,6 +41,9 @@ class StockBarcodesAction(models.Model):
             "option_group_id": option_group.id,
             "manual_entry": option_group.manual_entry,
             "display_read_quant": option_group.display_read_quant,
+            "show_barcode_scanner": self.env["ir.config_parameter"]
+            .sudo()
+            .get_param("stock_barcodes.enable_camera_barcode_scanner", False),
         }
         if option_group.get_option_value("location_id", "filled_default"):
             vals["location_id"] = (

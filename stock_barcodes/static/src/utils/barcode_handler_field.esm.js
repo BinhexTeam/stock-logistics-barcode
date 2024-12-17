@@ -2,6 +2,7 @@
 import {BarcodeHandlerField} from "@barcodes/barcode_handler_field";
 import {patch} from "@web/core/utils/patch";
 import {useService} from "@web/core/utils/hooks";
+
 const {useEffect} = owl;
 
 patch(BarcodeHandlerField.prototype, "stock_barcodes.BarcodeHandlerField", {

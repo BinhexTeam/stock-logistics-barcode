@@ -17,7 +17,7 @@ export const barcodeModels = [
 
 /**
  * Helper to know if the given model is allowed
- *
+ * @param {String} modelName
  * @returns {Boolean}
  */
 export function isAllowedBarcodeModel(modelName) {

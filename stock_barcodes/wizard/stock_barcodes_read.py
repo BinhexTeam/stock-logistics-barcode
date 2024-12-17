@@ -91,6 +91,7 @@ class WizStockBarcodesRead(models.AbstractModel):
     total_product_qty_done = fields.Float(
         string="Product Qty. Done", digits="Product Unit of Measure", store=False
     )
+    show_barcode_scanner = fields.Boolean(default=False)
 
     @api.depends("res_id")
     def _compute_action_ids(self):
@@ -170,7 +171,8 @@ class WizStockBarcodesRead(models.AbstractModel):
         return False
 
     def process_barcode_product_id(self):
-        domain = self._barcode_domain(self.barcode)
+        context = dict(self.env.context)
+        domain = self._barcode_domain(self.barcode or context.get("barcode", False))
         product = self.env["product.product"].search(domain)
         if product:
             if len(product) > 1:
@@ -374,7 +376,11 @@ class WizStockBarcodesRead(models.AbstractModel):
                 and getattr(self, option.field_name, False)
             ):
                 continue
-            option_func = getattr(self, "process_barcode_%s" % option.field_name, False)
+            option_func = getattr(
+                self.with_context(barcode=barcode),
+                "process_barcode_%s" % option.field_name,
+                False,
+            )
             if option_func:
                 res = option_func()
                 if res:
@@ -810,3 +816,15 @@ class WizStockBarcodesRead(models.AbstractModel):
                 "stock_barcodes_notify-{}".format(self.ids[0]),
                 message,
             )
+
+    @api.model
+    def camera_barcode_scanner(self, **kwargs):
+        location_hash = kwargs.get("location_hash", "")
+        if location_hash:
+            wiz_stock_id = location_hash.split("id=")[1].split("&")[0]
+            wiz_model_name = location_hash.split("model=")[1].split("&")[0]
+            if wiz_stock_id and wiz_model_name:
+                wiz_stock = self.env[wiz_model_name].sudo().browse(int(wiz_stock_id))
+                if wiz_stock:
+                    wiz_stock.sudo().write({"barcode": kwargs.get("barcode", False)})
+                wiz_stock.process_barcode(kwargs.get("barcode", False))

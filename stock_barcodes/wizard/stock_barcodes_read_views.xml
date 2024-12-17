@@ -3,7 +3,11 @@
         <field name="name">stock.barcodes.read.form</field>
         <field name="model">wiz.stock.barcodes.read</field>
         <field name="arch" type="xml">
-            <form string="Barcodes" class="oe_stock_barcordes_form">
+            <form
+                js_class="barcode_scanner"
+                string="Barcodes"
+                class="oe_stock_barcordes_form"
+            >
                 <div class="d-flex flex-column h-100">
                     <div
                         name="menu_actions"
@@ -99,6 +103,7 @@
                                 />
                             </div>
                         </div>
+                        <field name="show_barcode_scanner" invisible="1" />
                         <field name="message_type" invisible="1" />
                         <field name="barcode" invisible="1" force_save="1" />
                         <field name="step" invisible="1" force_save="1" />
@@ -131,9 +136,8 @@
                         <group name="scan_fields" class="bg-light scan_fields">
                             <group name="location" col="1">
                                 <div class="mt-1" colspan="2">
-                                    <strong
-                                        class=" d-none d-sm-block"
-                                    >Source Location</strong>
+                                    <strong class=" d-none d-sm-block">Source Location
+                                    </strong>
                                     <span
                                         class="fa fa-map-marker d-sm-none oe_span_small_icon"
                                         title="Source Location"
@@ -157,7 +161,8 @@
                                 <div class="m-0" colspan="2">
                                     <strong
                                         class="d-none d-sm-block"
-                                    >Source Package -&gt; Result Package</strong>
+                                    >Source Package -&gt; Result Package
+                                    </strong>
                                     <span
                                         class="fa fa-cubes d-sm-none oe_span_small_icon"
                                         title="Source Package to Result Package"
@@ -172,7 +177,8 @@
                                     />
                                     <span
                                         attrs="{'invisible': [('result_package_id', '=', False)]}"
-                                    >-&gt;</span>
+                                    >-&gt;
+                                    </span>
                                     <field
                                         name="result_package_id"
                                         options="{'no_create': True, 'no_open': True}"
@@ -330,21 +336,25 @@
                                         <div
                                             attrs="{'invisible': [('total_product_uom_qty', '=', 0.0)]}"
                                         >
-                                            <span>(<field
+                                            <span>(
+                                                <field
                                                     name="total_product_qty_done"
                                                     class="oe_inline"
                                                     readonly="1"
-                                                /> / <field
+                                                />
+                                                /<field
                                                     name="total_product_uom_qty"
                                                     class="oe_inline"
                                                     readonly="1"
-                                                />) <field
+                                                />)
+                                                <field
                                                     name="product_uom_id"
                                                     class="oe_inline"
                                                     options="{'no_open': True}"
                                                     readonly="1"
                                                     widget="selection"
-                                                /></span>
+                                                />
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
@@ -379,7 +389,7 @@
                                 aria-expanded="false"
                                 title="Options"
                             >
-                              <i class="fa fa-cogs" />
+                                <i class="fa fa-cogs" />
                             </a>
                             <div
                                 class="d-lg-flex-no-dropdown ps-2 dropdown-menu"
@@ -409,6 +419,14 @@
                                 class="fa-hand-paper-o fa text-info me-1"
                                 attrs="{'invisible': [('manual_entry', '=', False)]}"
                             />
+                        </div>
+                        <div
+                            class="mx-3"
+                            attrs="{'invisible': [('show_barcode_scanner', '=', False)]}"
+                        >
+                            <a href="#" t-on-click="openBarcodeScanner">
+                                <i class="fa fa-2x fa-barcode" />
+                            </a>
                         </div>
                         <!-- HACK: To avoid inheritance crash -->
                         <button name="action_manual_entry" invisible="1" />

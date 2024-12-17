@@ -3,7 +3,7 @@
  * License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl). */
 
 import {KanbanRenderer} from "@web/views/kanban/kanban_renderer";
-import {isAllowedBarcodeModel} from "../utils/barcodes_models_utils.esm";
+import {isAllowedBarcodeModel} from "../../utils/barcodes_models_utils.esm";
 import {patch} from "@web/core/utils/patch";
 import {useBus} from "@web/core/utils/hooks";
 import {useHotkey} from "@web/core/hotkeys/hotkey_hook";
@@ -65,6 +65,34 @@ patch(KanbanRenderer.prototype, "add hotkey", {
         }
     },
 
+    getNextCard(cards, iGroup, iCard, isGrouped, direction) {
+        // Find next card to focus
+        let nextCard = null;
+        switch (direction) {
+            case "down":
+                nextCard = iCard < cards[iGroup].length - 1 && cards[iGroup][iCard + 1];
+                break;
+            case "up":
+                nextCard = iCard > 0 && cards[iGroup][iCard - 1];
+                break;
+            case "right":
+                if (isGrouped) {
+                    nextCard = iGroup < cards.length - 1 && cards[iGroup + 1][0];
+                } else {
+                    nextCard = iCard < cards[0].length - 1 && cards[0][iCard + 1];
+                }
+                break;
+            case "left":
+                if (isGrouped) {
+                    nextCard = iGroup > 0 && cards[iGroup - 1][0];
+                } else {
+                    nextCard = iCard > 0 && cards[0][iCard - 1];
+                }
+                break;
+        }
+        return nextCard;
+    },
+
     // eslint-disable-next-line complexity
     // This is copied from the base kanban_renderer.
     // We want to only focus card with barcode when isAllowedBarcodeModel returns true
@@ -77,8 +105,10 @@ patch(KanbanRenderer.prototype, "add hotkey", {
      *
      * @param {Node} area
      * @param {String} direction
+     *
+     * @returns {Boolean|void}
      */
-    focusNextCard(area, direction) {
+    focusNextCard(area, direction = "") {
         const {isGrouped} = this.props.list;
         const closestCard = document.activeElement.closest(".o_kanban_record");
         if (!closestCard) {
@@ -116,31 +146,7 @@ patch(KanbanRenderer.prototype, "add hotkey", {
             iCard = 0;
             iGroup = 0;
         }
-        // Find next card to focus
-        let nextCard = null;
-        switch (direction) {
-            case "down":
-                nextCard = iCard < cards[iGroup].length - 1 && cards[iGroup][iCard + 1];
-                break;
-            case "up":
-                nextCard = iCard > 0 && cards[iGroup][iCard - 1];
-                break;
-            case "right":
-                if (isGrouped) {
-                    nextCard = iGroup < cards.length - 1 && cards[iGroup + 1][0];
-                } else {
-                    nextCard = iCard < cards[0].length - 1 && cards[0][iCard + 1];
-                }
-                break;
-            case "left":
-                if (isGrouped) {
-                    nextCard = iGroup > 0 && cards[iGroup - 1][0];
-                } else {
-                    nextCard = iCard > 0 && cards[0][iCard - 1];
-                }
-                break;
-        }
-
+        const nextCard = this.getNextCard(cards, iGroup, iCard, isGrouped, direction);
         if (nextCard && nextCard instanceof HTMLElement) {
             nextCard.focus();
             return true;

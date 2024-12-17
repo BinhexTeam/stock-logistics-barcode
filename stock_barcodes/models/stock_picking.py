@@ -15,6 +15,9 @@ class StockPicking(models.Model):
             "option_group_id": option_group.id,
             "manual_entry": option_group.manual_entry,
             "picking_mode": "picking",
+            "show_barcode_scanner": self.env["ir.config_parameter"]
+            .sudo()
+            .get_param("stock_barcodes.enable_camera_barcode_scanner", False),
         }
         if self.picking_type_id.code == "outgoing":
             vals["location_dest_id"] = self.location_dest_id.id
