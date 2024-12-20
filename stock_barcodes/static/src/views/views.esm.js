@@ -109,8 +109,8 @@ function setupView() {
             notifications.forEach((notif) => {
                 const {payload, type} = notif;
                 if (
-                    (this.model.root.resModel == payload.res_model) &
-                    (this.model.root.resId == payload.res_id)
+                    (this.model.root.resModel === payload.res_model) &
+                    (this.model.root.resId === payload.res_id)
                 ) {
                     if (type === "stock_barcodes_sound") {
                         if (payload.sound === "ko") {

@@ -77,6 +77,7 @@ patch(KanbanRenderer.prototype, "add hotkey", {
      *
      * @param {Node} area
      * @param {String} direction
+     * @returns {String/Boolean}
      */
     focusNextCard(area, direction) {
         const {isGrouped} = this.props.list;
