@@ -64,6 +64,32 @@ patch(KanbanRenderer.prototype, "add hotkey", {
             }
         }
     },
+    getNextCard(direction, iCard, cards, iGroup, isGrouped) {
+        let nextCard = null;
+        switch (direction) {
+            case "down":
+                nextCard = iCard < cards[iGroup].length - 1 && cards[iGroup][iCard + 1];
+                break;
+            case "up":
+                nextCard = iCard > 0 && cards[iGroup][iCard - 1];
+                break;
+            case "right":
+                if (isGrouped) {
+                    nextCard = iGroup < cards.length - 1 && cards[iGroup + 1][0];
+                } else {
+                    nextCard = iCard < cards[0].length - 1 && cards[0][iCard + 1];
+                }
+                break;
+            case "left":
+                if (isGrouped) {
+                    nextCard = iGroup > 0 && cards[iGroup - 1][0];
+                } else {
+                    nextCard = iCard > 0 && cards[0][iCard - 1];
+                }
+                break;
+        }
+        return nextCard;
+    },
 
     // eslint-disable-next-line complexity
     // This is copied from the base kanban_renderer.
@@ -118,30 +144,7 @@ patch(KanbanRenderer.prototype, "add hotkey", {
             iGroup = 0;
         }
         // Find next card to focus
-        let nextCard = null;
-        switch (direction) {
-            case "down":
-                nextCard = iCard < cards[iGroup].length - 1 && cards[iGroup][iCard + 1];
-                break;
-            case "up":
-                nextCard = iCard > 0 && cards[iGroup][iCard - 1];
-                break;
-            case "right":
-                if (isGrouped) {
-                    nextCard = iGroup < cards.length - 1 && cards[iGroup + 1][0];
-                } else {
-                    nextCard = iCard < cards[0].length - 1 && cards[0][iCard + 1];
-                }
-                break;
-            case "left":
-                if (isGrouped) {
-                    nextCard = iGroup > 0 && cards[iGroup - 1][0];
-                } else {
-                    nextCard = iCard > 0 && cards[0][iCard - 1];
-                }
-                break;
-        }
-
+        const nextCard = this.getNextCard(direction, iCard, cards, iGroup, isGrouped);
         if (nextCard && nextCard instanceof HTMLElement) {
             nextCard.focus();
             return true;

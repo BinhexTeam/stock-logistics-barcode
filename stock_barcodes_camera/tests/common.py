@@ -11,6 +11,7 @@ class TestCommonStockBarcodes(TransactionCase):
         cls.location_hash = (
             "#id=17&model=wiz.stock.barcodes.read.inventory&view_type=form"
         )
+        cls.stock_barcodes_action = cls.env["stock.barcodes.action"]
 
     def camera_barcode_scanner(self, location_hash=""):
         if location_hash:
