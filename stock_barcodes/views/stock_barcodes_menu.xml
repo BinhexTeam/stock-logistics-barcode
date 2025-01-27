@@ -4,7 +4,17 @@
         id="stock_barcodes_root"
         name="Barcodes"
         web_icon="stock_barcodes,static/description/icon.png"
-        action="stock_barcodes.action_stock_barcodes_action"
+        action="stock_barcodes.action_client_stock_barcodes_menu"
         groups="stock.group_stock_user"
     />
+
+    <menuitem
+        action="action_stock_barcodes"
+        id="menu_action_stock_barcodes"
+        groups="stock.group_stock_user"
+        name="Barcode actions"
+        parent="stock.menu_product_in_config_stock"
+        sequence="100"
+    />
+
 </odoo>

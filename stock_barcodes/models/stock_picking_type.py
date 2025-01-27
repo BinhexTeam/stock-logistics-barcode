@@ -67,3 +67,11 @@ class StockPickingType(models.Model):
         )
         option_group = self.new_picking_barcode_option_group_id
         return picking.action_barcode_scan(option_group=option_group)
+
+    def get_action_picking_tree_ready(self):
+        context = dict(self.env.context)
+        if context.get("operations_mode", False):
+            return self._get_action(
+                "stock_barcodes.stock_barcodes_action_picking_tree_ready"
+            )
+        return super().get_action_picking_tree_ready()
