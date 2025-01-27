@@ -77,3 +77,25 @@ Barcode scanning interface display 10 last records linked to model, the goal of
 this log is show to user other reads with the same product and location done
 by other users.
 User can remove the last read scan.
+
+Barcode interface for barcode actions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+To use the barcode interface for actions:
+
+#. Go to *Inventory > Configuration > Barcode Actions*.
+#. Create a new barcode action and configure the barcode.
+
+.. image:: /stock_barcodes/static/src/img/create_barcode_action.png
+   :height: 100
+   :width: 200
+   :alt: Print barcodes
+
+#. Select the barcode actions you want to use, a button (PRINT BARCODES) will appear that allows you to print the configured barcodes to PDF.
+
+.. image:: /stock_barcodes/static/src/img/print_barcodes.png
+   :height: 100
+   :width: 200
+   :alt: Print barcodes
+
+#. Go to *Barcodes*.
+#. Start scanning barcodes from actions.
