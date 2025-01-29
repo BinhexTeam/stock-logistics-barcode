@@ -986,9 +986,19 @@ class WizStockBarcodesReadPicking(models.TransientModel):
         ).action_validate_picking()
         if not valid:
             return result
-        return self.env["ir.actions.actions"]._for_xml_id(
+        action = self.env["ir.actions.actions"]._for_xml_id(
             "stock_barcodes.stock_barcodes_action_picking_tree_ready"
         )
+
+        if self.picking_id and self.picking_id.picking_type_id:
+            context = self.env.context.copy()
+            context.update(safe_eval(action["context"]))
+            context.update(
+                {"search_default_picking_type_id": self.picking_id.picking_type_id.id}
+            )
+            action["context"] = context
+
+        return action
 
     def action_open_picking(self):
         for candidate_picking in self.candidate_picking_ids:
