@@ -150,7 +150,7 @@ function setupView() {
                         });
                     } else if (payload.apply_inventory) {
                         actionService.doAction(
-                            "stock_barcodes.action_client_stock_barcodes_menu"
+                            "stock_barcodes.action_stock_barcodes_action"
                         );
                         notification.add(
                             _t("The inventory adjustment has been validated"),
