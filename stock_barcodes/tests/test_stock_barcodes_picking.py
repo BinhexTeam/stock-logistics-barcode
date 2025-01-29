@@ -475,6 +475,18 @@ class TestStockBarcodesPicking(TestCommonStockBarcodes):
                 stock_barcodes_validate_picking=True
             ).button_validate()
 
+    def test_barcode_read_picking(self):
+        self.picking_in_01.state = "done"
+        self.wiz_scan_picking._compute_enable_add_product()
+        self.assertFalse(self.wiz_scan_picking.enable_add_product)
+
+        self.wiz_scan_picking.show_detailed_operations = False
+        self.wiz_scan_picking.action_show_detailed_operations()
+        self.assertTrue(self.wiz_scan_picking.action_show_detailed_operations)
+
+        self.wiz_scan_picking.action_show_detailed_operations()
+        self.assertFalse(self.wiz_scan_picking.show_detailed_operations)
+
     def test_barcode_read_inventory(self):
         context = {
             "params": {
