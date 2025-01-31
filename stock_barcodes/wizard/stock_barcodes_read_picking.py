@@ -365,7 +365,7 @@ class WizStockBarcodesReadPicking(models.TransientModel):
         picking = self.env.context.get("picking", self.picking_id)
         if not picking:
             raise ValidationError(
-                _("You can not add extra moves if you have " "not set a picking")
+                _("You can not add extra moves if you have not set a picking")
             )
         # If we move all package units the result package is the same
         if (
@@ -524,10 +524,12 @@ class WizStockBarcodesReadPicking(models.TransientModel):
             )
         else:
             moves_todo = StockMove.search(domain)
-        if not getattr(
-            self,
-            "_search_candidate_%s" % self.picking_mode,
-        )(moves_todo):
+        try:
+            getattr(
+                self,
+                "_search_candidate_%s" % self.picking_mode,
+            )(moves_todo)
+        except AttributeError:
             return False
         sml_vals = {}
         candidate_lines = self._get_candidate_stock_move_lines(moves_todo, sml_vals)
