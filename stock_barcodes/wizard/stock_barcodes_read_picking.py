@@ -408,7 +408,7 @@ class WizStockBarcodesReadPicking(models.TransientModel):
         ]
         if self.picking_id:
             domain.append(("picking_id", "=", self.picking_id.id))
-        return []
+        return domain
 
     def _set_candidate_pickings(self, candidate_pickings):
         vals = [(5, 0, 0)]

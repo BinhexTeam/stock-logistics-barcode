@@ -45,24 +45,25 @@ class StockBarcodesAction(models.Model):
 
     @api.constrains("barcode")
     def _constrains_barcode(self):
-        if not re.match(REGEX.get("barcode", False), self.barcode):
-            raise ValidationError(
-                _(
-                    f"The barcode {self.barcode} is not correct. "
-                    f"Use numbers, letters and dashes, without spaces. "
-                    f"E.g. 15753, BC-5789,er-56"
+        for action in self:
+            if not re.match(REGEX.get("barcode", False), action.barcode):
+                raise ValidationError(
+                    _(
+                        f"The barcode {action.barcode} is not correct. "
+                        f"Use numbers, letters and dashes, without spaces. "
+                        f"E.g. 15753, BC-5789,er-56"
+                    )
                 )
-            )
-        all_barcode = [bar for bar in self.mapped("barcode") if bar]
-        domain = [("barcode", "in", all_barcode)]
-        matched_actions = self.sudo().search(domain, order="id")
-        if len(matched_actions) > len(all_barcode):
-            raise ValidationError(
-                _(
-                    f"Barcode has already been assigned to "
-                    f"the action(s): {', '.join(matched_actions.mapped('name'))}."
+            all_barcode = [bar for bar in action.mapped("barcode") if bar]
+            domain = [("barcode", "in", all_barcode)]
+            matched_actions = self.sudo().search(domain, order="id")
+            if len(matched_actions) > len(all_barcode):
+                raise ValidationError(
+                    _(
+                        f"Barcode has already been assigned to "
+                        f"the action(s): {', '.join(matched_actions.mapped('name'))}."
+                    )
                 )
-            )
 
     def _generate_barcode(self):
         barcode_type = barcode.get_barcode_class("code128")
