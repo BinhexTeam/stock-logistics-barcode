@@ -49,9 +49,11 @@ class StockBarcodesAction(models.Model):
             if not re.match(REGEX.get("barcode", False), action.barcode):
                 raise ValidationError(
                     _(
-                        f"The barcode {action.barcode} is not correct. "
-                        f"Use numbers, letters and dashes, without spaces. "
-                        f"E.g. 15753, BC-5789,er-56"
+                        """ The barcode {} is not correct.
+                        Use numbers, letters and dashes, without spaces.
+                        E.g. 15753, BC-5789,er-56 """.format(
+                            action.barcode
+                        )
                     )
                 )
             all_barcode = [bar for bar in action.mapped("barcode") if bar]
@@ -60,8 +62,11 @@ class StockBarcodesAction(models.Model):
             if len(matched_actions) > len(all_barcode):
                 raise ValidationError(
                     _(
-                        f"Barcode has already been assigned to "
-                        f"the action(s): {', '.join(matched_actions.mapped('name'))}."
+                        """ Barcode has already been assigned to
+                        the action(s): {}.
+                        """.format(
+                            ", ".join(matched_actions.mapped("name"))
+                        )
                     )
                 )
 
@@ -110,7 +115,7 @@ class StockBarcodesAction(models.Model):
                         FIELDS_NAME.get(field_name, field_name),
                     ):
                         return (
-                            f"{FIELDS_NAME.get(field_name, field_name)}",
+                            "{}".format(FIELDS_NAME.get(field_name, field_name)),
                             "=",
                             field_value,
                         )
