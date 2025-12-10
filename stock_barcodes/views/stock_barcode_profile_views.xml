@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <data>
+        <record id="view_stock_barcode_profile_tree" model="ir.ui.view">
+            <field name="name">stock.barcode.profile.tree</field>
+            <field name="model">stock.barcode.profile</field>
+            <field name="arch" type="xml">
+                <tree default_order="operation_usage">
+                    <field name="name" />
+                    <field name="operation_usage" />
+                    <field name="scope" />
+                    <field name="suggestion_mode" />
+                    <field name="lot_policy" />
+                    <field name="package_policy" />
+                    <field name="allow_gs1_parsing" widget="boolean_toggle" />
+                    <field name="chatter_mode" />
+                    <field name="active" widget="boolean_toggle" />
+                </tree>
+            </field>
+        </record>
+
+        <record id="view_stock_barcode_profile_form" model="ir.ui.view">
+            <field name="name">stock.barcode.profile.form</field>
+            <field name="model">stock.barcode.profile</field>
+            <field name="arch" type="xml">
+                <form string="Barcode profile">
+                    <sheet>
+                        <div class="oe_title">
+                            <label for="name" class="oe_edit_only" />
+                            <h1>
+                                <field name="name" placeholder="Profile name" />
+                            </h1>
+                            <field
+                                name="description"
+                                placeholder="Internal description"
+                            />
+                        </div>
+                        <group col="4">
+                            <field name="operation_usage" />
+                            <field name="scope" />
+                            <field name="suggestion_mode" />
+                            <field name="allow_manual_override" />
+                            <field name="default_manual_entry" />
+                            <field name="lot_policy" />
+                            <field
+                                name="allow_lot_creation"
+                                invisible="lot_policy=='disabled'"
+                            />
+                            <field name="package_policy" />
+                            <field
+                                name="allow_packages_reuse"
+                                invisible="package_policy=='disabled'"
+                            />
+                            <field name="allow_gs1_parsing" />
+                            <field name="allow_negative_stock" />
+                            <field name="allow_partial_validation" />
+                            <field
+                                name="backorder_policy"
+                                invisible="scope=='inventory'"
+                            />
+                            <field name="chatter_mode" />
+                            <field
+                                name="chatter_placeholder"
+                                invisible="chatter_mode=='none'"
+                            />
+                            <field name="color" widget="color_picker" />
+                            <field name="active" />
+                        </group>
+                        <group string="Operation types" col="1">
+                            <field
+                                name="picking_type_ids"
+                                widget="many2many_tags"
+                                placeholder="Select operation types"
+                                options="{'no_create': True, 'no_quick_create': True}"
+                            />
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_stock_barcode_profile" model="ir.actions.act_window">
+            <field name="name">Barcode Profiles</field>
+            <field name="res_model">stock.barcode.profile</field>
+            <field name="view_mode">tree,form</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Configure reusable presets for the barcode interface.
+                </p>
+                <p>
+                    Each profile defines how to deal with lots, packages, GS1 parsing
+                    and chatter, and can be linked to multiple operation types.
+                </p>
+            </field>
+        </record>
+
+        <menuitem
+            id="menu_stock_barcode_configuration_root"
+            name="Barcode"
+            parent="stock.menu_stock_config_settings"
+            sequence="40"
+        />
+        <menuitem
+            id="menu_stock_barcode_profile"
+            name="Profiles"
+            parent="menu_stock_barcode_configuration_root"
+            action="action_stock_barcode_profile"
+            sequence="10"
+            groups="stock.group_stock_manager"
+        />
+    </data>
+</odoo>

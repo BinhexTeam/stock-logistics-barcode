@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <templates xml:space="preserve">
+        <!--
+            Demo of XML-first extensibility of the OWL barcode session screen.
+
+            Other modules can copy this approach and inject controls using t-inherit.
+        -->
+        <t
+            t-name="stock_barcodes.stock_barcodes_session_scan_extension_demo"
+            t-inherit="stock_barcodes.BarcodeSessionScanExtension"
+            t-inherit-mode="extension"
+        >
+            <xpath expr="." position="inside">
+                <section class="o_barcode_session_panel mt-3">
+                    <div class="o_barcode_session_panel_header">
+                        <h3 class="h6 mb-0">Tips</h3>
+                    </div>
+                    <ul class="mb-0 text-muted">
+                        <li>Scan a product barcode to increment quantities.</li>
+                        <li>Use the quantity input to change the increment.</li>
+                        <li>Expand a move to see its move lines details.</li>
+                    </ul>
+                </section>
+            </xpath>
+        </t>
+    </templates>
+</odoo>

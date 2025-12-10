@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates xml:space="preserve">
+    <div t-name="stock_barcodes.MainMenu" class="stock-barcodes-main-menu">
+        <header class="o_barcode_hub_header">
+            <div class="o_barcode_hub_breadcrumbs">
+                <button
+                    class="btn btn-link text-decoration-none p-0 me-3"
+                    type="button"
+                    t-on-click="mainMenuHome"
+                    t-att-aria-label="env._t('Dashboard')"
+                >
+                    <i class="fa fa-home" aria-hidden="true" />
+                </button>
+                <span class="o_barcode_breadcrumb_sep">/</span>
+                <button
+                    class="btn btn-link o_barcode_breadcrumb_link"
+                    type="button"
+                    t-on-click="goToProfiles"
+                >
+                    <t t-esc="env._t('Operations')" />
+                </button>
+                <t t-if="currentProfile">
+                    <span class="o_barcode_breadcrumb_sep">/</span>
+                    <span class="fw-semibold" t-esc="currentProfile.name" />
+                </t>
+            </div>
+        </header>
+
+        <t t-if="state.loading">
+            <div class="o_barcode_empty">
+                <span class="fa fa-spinner fa-pulse fa-2x" />
+                <p class="text-muted mt-2" t-esc="env._t('Loading profiles…')" />
+            </div>
+        </t>
+        <t t-elif="!profiles.length">
+            <div class="o_barcode_empty">
+                <h2 class="h4" t-esc="env._t('No operations available yet')" />
+                <p
+                    class="text-muted mb-0"
+                    t-esc="env._t('Create a barcode profile and link operation types to start scanning.')"
+                />
+            </div>
+        </t>
+        <t t-elif="!currentProfile">
+            <div class="o_barcode_profiles_grid">
+                <t t-foreach="profiles" t-as="profile" t-key="profile.id">
+                    <article class="o_barcode_profile_card">
+                        <button
+                            type="button"
+                            t-attf-class="btn btn-lg w-100 o_barcode_profile_btn #{this.isProfileEnabled(profile) ? 'btn-primary' : 'btn-outline-secondary'}"
+                            t-on-click="() => this.selectProfile(profile.id)"
+                            t-att-disabled="!this.isProfileEnabled(profile)"
+                        >
+                            <span class="o_barcode_profile_name" t-esc="profile.name" />
+                        </button>
+                    </article>
+                </t>
+            </div>
+        </t>
+        <t t-else="">
+            <section class="o_barcode_profile_detail">
+                <t t-if="currentOperations.length">
+                    <div class="o_barcode_operations_panel">
+                        <div class="o_barcode_operations_grid">
+                        <t
+                                t-foreach="currentOperations"
+                                t-as="operation"
+                                t-key="operation.id"
+                            >
+                            <article class="o_barcode_operation_card">
+                                <header>
+                                    <div>
+                                        <h3 class="h5 mb-0" t-esc="operation.name" />
+                                        <p class="text-muted mb-0">
+                                            <t
+                                                    t-esc="operation.code_label or operation.code"
+                                                />
+                                        </p>
+                                    </div>
+                                    <div class="text-end">
+                                        <span
+                                                class="badge bg-dark text-white"
+                                                t-esc="operation.pending_count"
+                                            />
+                                        <div class="small text-muted">
+                                            <t t-esc="env._t('Pending')" />
+                                        </div>
+                                    </div>
+                                </header>
+                                <p class="text-muted mb-2" t-if="operation.warehouse">
+                                    <i class="fa fa-industry me-1" />
+                                    <t t-esc="operation.warehouse" />
+                                </p>
+                                <p
+                                        class="text-muted mb-0"
+                                        t-if="operation.default_location_src or operation.default_location_dest"
+                                    >
+                                    <i class="fa fa-exchange me-1" />
+                                    <t
+                                            t-if="operation.default_location_src"
+                                            t-esc="operation.default_location_src"
+                                        />
+                                    <t
+                                            t-if="operation.default_location_src and operation.default_location_dest"
+                                        > → </t>
+                                    <t
+                                            t-if="operation.default_location_dest"
+                                            t-esc="operation.default_location_dest"
+                                        />
+                                </p>
+                                <button
+                                        class="btn btn-outline-secondary w-100 mt-3"
+                                        type="button"
+                                        t-on-click="() => this.openOperationList(operation.id)"
+                                    >
+                                    <i class="fa fa-list me-1" />
+                                    <t t-esc="env._t('Pending operations')" />
+                                </button>
+                            </article>
+                        </t>
+                        </div>
+                    </div>
+                </t>
+                <t t-else="">
+                    <div class="o_barcode_empty">
+                        <p
+                            class="text-muted"
+                            t-esc="env._t('No operation types linked to this profile yet.')"
+                        />
+                    </div>
+                </t>
+            </section>
+        </t>
+    </div>
+</templates>

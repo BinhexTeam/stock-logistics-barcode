@@ -1,0 +1,195 @@
+.o_barcode_session_root {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 1rem;
+    gap: 1rem;
+    background-color: var(--o-view-background-color, #f8f9fb);
+}
+
+.o_barcode_session_placeholder {
+    margin: auto;
+    text-align: center;
+    color: #6c757d;
+}
+
+.o_barcode_session_header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.o_barcode_session_header_actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: flex-end;
+}
+
+.o_barcode_session_header_buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.o_barcode_header_btn {
+    min-width: 9rem;
+    font-weight: 600;
+}
+
+.o_barcode_session_badges {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.o_barcode_session_body {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+    flex: 1;
+    min-height: 0;
+}
+
+.o_barcode_session_panel {
+    background-color: #fff;
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.o_barcode_session_panel_header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.o_barcode_session_messages {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.o_barcode_session_message header {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.o_barcode_session_message {
+    padding: 0.75rem;
+    border-radius: 10px;
+    background-color: #f4f6fb;
+}
+
+.o_barcode_session_scan_form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.o_barcode_session_scan_form .o_barcode_input {
+    font-size: 1.15rem;
+    padding: 0.85rem 1rem;
+    letter-spacing: 0.03em;
+}
+
+.o_barcode_scan_controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.o_barcode_session_scan_form .o_barcode_qty_input {
+    max-width: 8rem;
+    text-align: center;
+}
+
+.o_barcode_scan_button {
+    flex: 1;
+    font-weight: 600;
+}
+
+.o_barcode_session_scan .alert {
+    padding: 0.5rem 0.75rem;
+}
+
+.o_barcode_session_moves table tbody tr.table-primary {
+    background-color: #e7f1ff;
+}
+
+.o_barcode_session_table_wrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.badge.o_barcode_state_assigned {
+    background-color: #d1fae5;
+    color: #0f5132;
+}
+
+.badge.o_barcode_state_confirmed,
+.badge.o_barcode_state_waiting {
+    background-color: #fff4e6;
+    color: #8a6d3b;
+}
+
+.badge.o_barcode_state_done {
+    background-color: #dbeafe;
+    color: #1d4ed8;
+}
+
+.badge.o_barcode_state_cancel {
+    background-color: #f8d7da;
+    color: #842029;
+}
+
+@media (max-width: 768px) {
+    .o_barcode_session_root {
+        padding: 0.5rem;
+    }
+
+    .o_barcode_session_header {
+        flex-direction: column;
+    }
+
+    .o_barcode_session_header_actions {
+        width: 100%;
+        align-items: stretch;
+    }
+
+    .o_barcode_session_header_buttons {
+        justify-content: stretch;
+    }
+
+    .o_barcode_header_btn {
+        flex: 1;
+    }
+
+    .o_barcode_session_body {
+        grid-template-columns: 1fr;
+    }
+
+    .o_barcode_scan_controls {
+        flex-direction: column;
+    }
+
+    .o_barcode_session_scan_form .o_barcode_qty_input {
+        max-width: none;
+        width: 100%;
+    }
+
+    .o_barcode_scan_button {
+        width: 100%;
+    }
+}

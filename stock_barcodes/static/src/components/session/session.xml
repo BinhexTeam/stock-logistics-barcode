@@ -1,0 +1,362 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates id="template" xml:space="preserve">
+    <div t-name="stock_barcodes.BarcodeSessionRoot" class="o_barcode_session_root">
+        <t t-set="payload" t-value="state.payload" />
+        <t t-if="state.loading">
+            <div class="o_barcode_session_placeholder">
+                <span class="fa fa-spinner fa-pulse fa-2x" />
+                <p class="text-muted mt-2" t-esc="env._t('Loading barcode session…')" />
+            </div>
+        </t>
+        <t t-elif="!payload">
+            <div class="o_barcode_session_placeholder">
+                <h2 class="fw-bold mb-2" t-esc="env._t('No data available')" />
+                <p
+                    class="text-muted"
+                    t-esc="env._t('The session could not load any picking or inventory record.')"
+                />
+            </div>
+        </t>
+        <t t-else="">
+            <!-- Header: easy to extend via t-inherit on stock_barcodes.BarcodeSessionHeader -->
+            <BarcodeSessionHeader
+                profile="profile"
+                picking="picking"
+                inventory="inventory"
+                profileBadges="profileBadges"
+                onBack.bind="goBack"
+                onReload.bind="loadPayload"
+                onOpenPicking.bind="openPicking"
+            />
+
+            <!-- Extension point: inject extra header actions/info using classic XML inheritance. -->
+            <t t-call="stock_barcodes.BarcodeSessionHeaderExtension" />
+
+            <div class="o_barcode_session_body">
+                <BarcodeSessionScanPanel
+                    scanForm="scanForm"
+                    scanResult="scanResult"
+                    scanAlertClass="scanAlertClass"
+                    sessionMeta="sessionMeta"
+                    profile="profile"
+                    onBarcodeInput.bind="onBarcodeInput"
+                    onQuantityInput.bind="onQuantityInput"
+                    onSubmit.bind="submitScan"
+                    barcodeInputRefName="'barcodeInput'"
+                />
+
+                <!-- Extension point: add controls or extra info around scan panel. -->
+                <t t-call="stock_barcodes.BarcodeSessionScanExtension" />
+                <BarcodeSessionMovesTable
+                    picking="picking"
+                    moveRowClass.bind="moveRowClass"
+                />
+
+                <!-- Extension point: inject extra tables / panels related to moves. -->
+                <t t-call="stock_barcodes.BarcodeSessionMovesExtension" />
+                <BarcodeSessionChatter messages="messages" />
+
+                <!-- Extension point: inject extra chatter/info panels. -->
+                <t t-call="stock_barcodes.BarcodeSessionChatterExtension" />
+
+                <!-- Registry-based extension panels (optional, for JS-heavy add-ons). -->
+                <BarcodeSessionExtensionPanels root="this" />
+            </div>
+        </t>
+    </div>
+
+    <!-- Sub-templates below are intended to be extended via classic XML inheritance (t-inherit/xpath). -->
+
+    <t t-name="stock_barcodes.BarcodeSessionHeader">
+        <div class="o_barcode_session_header">
+            <div>
+                <div class="text-uppercase text-muted small">
+                    <t t-esc="props.profile.name || env._t('Barcode profile')" />
+                </div>
+                <h2 class="fw-bold mb-1">
+                    <t t-if="props.picking" t-esc="props.picking.name" />
+                    <t t-if="props.inventory" t-esc="props.inventory.name" />
+                </h2>
+                <p class="text-muted mb-0">
+                    <t t-if="props.picking">
+                        <t t-esc="props.picking.partner || env._t('No partner')" />
+                        ·
+                        <t t-esc="props.picking.operation_type" />
+                    </t>
+                    <t t-if="props.inventory">
+                        <t t-esc="env._t('Inventory adjustment')" />
+                    </t>
+                </p>
+            </div>
+            <div class="o_barcode_session_header_actions">
+                <div class="o_barcode_session_badges">
+                    <t t-foreach="props.profileBadges" t-as="badge" t-key="badge.key">
+                        <span
+                            class="badge rounded-pill bg-info text-dark"
+                            t-att-title="badge.title"
+                        >
+                            <t t-esc="badge.label" />
+                        </span>
+                    </t>
+                </div>
+                <div class="o_barcode_session_header_buttons" role="group">
+                    <button
+                        class="btn btn-outline-secondary o_barcode_header_btn"
+                        type="button"
+                        t-on-click="props.onBack"
+                    >
+                        <i class="fa fa-arrow-left me-1" />
+                        <t t-esc="env._t('Back')" />
+                    </button>
+                    <button
+                        class="btn btn-outline-secondary o_barcode_header_btn"
+                        type="button"
+                        t-on-click="props.onReload"
+                    >
+                        <i class="fa fa-rotate-right me-1" />
+                        <t t-esc="env._t('Reload')" />
+                    </button>
+                    <button
+                        class="btn btn-primary o_barcode_header_btn"
+                        type="button"
+                        t-on-click="props.onOpenPicking"
+                        t-att-disabled="!props.picking"
+                    >
+                        <i class="fa fa-external-link me-1" />
+                        <t t-esc="env._t('Open picking')" />
+                    </button>
+                </div>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="stock_barcodes.BarcodeSessionScanPanel">
+        <section class="o_barcode_session_panel o_barcode_session_scan">
+            <div class="o_barcode_session_panel_header">
+                <h3 class="h5 mb-0" t-esc="env._t('Scan workspace')" />
+                <span class="badge bg-secondary" t-esc="props.sessionMeta.mode" />
+            </div>
+            <form
+                class="o_barcode_session_scan_form"
+                t-on-submit.prevent="props.onSubmit"
+            >
+                <label
+                    class="visually-hidden"
+                    for="barcodeInput"
+                    t-esc="env._t('Scanned barcode')"
+                />
+                <input
+                    type="text"
+                    class="form-control form-control-lg o_barcode_input"
+                    placeholder="Scan or type barcode"
+                    t-att-value="props.scanForm.barcode"
+                    t-on-input="props.onBarcodeInput"
+                    t-ref="barcodeInput"
+                    autofocus="autofocus"
+                    autocomplete="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    data-enable-barcode="true"
+                    id="barcodeInput"
+                />
+                <div class="o_barcode_scan_controls">
+                    <input
+                        type="number"
+                        step="0.01"
+                        min="0.0"
+                        inputmode="decimal"
+                        class="form-control form-control-lg o_barcode_qty_input"
+                        t-att-value="props.scanForm.quantity"
+                        t-on-input="props.onQuantityInput"
+                        title="Quantity"
+                    />
+                    <button
+                        class="btn btn-primary btn-lg o_barcode_scan_button"
+                        type="submit"
+                    >
+                        <i class="fa fa-barcode me-1" />
+                        <t t-esc="env._t('Scan')" />
+                    </button>
+                </div>
+            </form>
+            <t t-if="props.scanResult.message">
+                <div t-attf-class="alert mb-0 alert-{{ props.scanAlertClass }}">
+                    <t t-esc="props.scanResult.message" />
+                </div>
+            </t>
+            <t t-else="">
+                <p class="text-muted mb-0">
+                    <t
+                        t-esc="env._t('Scan a barcode to locate and update the matching move instantly. Quantity defaults to 1.0 if left blank.')"
+                    />
+                </p>
+            </t>
+            <ul class="list-unstyled mb-0">
+                <li>
+                    <strong t-esc="env._t('Lots / Serials:')" />
+                    <span
+                        class="ms-1"
+                        t-esc="props.profile.lot_policy || env._t('N/A')"
+                    />
+                </li>
+                <li>
+                    <strong t-esc="env._t('Packages:')" />
+                    <span
+                        class="ms-1"
+                        t-esc="props.profile.package_policy || env._t('N/A')"
+                    />
+                </li>
+                <li>
+                    <strong t-esc="env._t('Backorders:')" />
+                    <span
+                        class="ms-1"
+                        t-esc="props.profile.backorder_policy || env._t('N/A')"
+                    />
+                </li>
+                <li>
+                    <strong t-esc="env._t('Manual override:')" />
+                    <span
+                        class="ms-1"
+                        t-esc="props.profile.allow_manual_override ? env._t('Allowed') : env._t('Blocked')"
+                    />
+                </li>
+            </ul>
+        </section>
+    </t>
+
+    <t t-name="stock_barcodes.BarcodeSessionMovesTable">
+        <section class="o_barcode_session_panel o_barcode_session_moves">
+            <div class="o_barcode_session_panel_header">
+                <h3 class="h5 mb-0" t-esc="env._t('Pending operations')" />
+                <span class="text-muted small">
+                    <t
+                        t-if="props.picking"
+                        t-esc="`${env._t('Ready')}: ${props.picking.ready_count} · ${env._t('Total')}: ${props.picking.move_count}`"
+                    />
+                </span>
+            </div>
+            <t t-if="props.picking">
+                <div class="o_barcode_session_table_wrapper">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th t-esc="env._t('Product')" />
+                                <th
+                                    class="text-end"
+                                    t-esc="env._t('Done / Expected')"
+                                />
+                                <th class="text-end" t-esc="env._t('Pending')" />
+                                <th t-esc="env._t('State')" />
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t
+                                t-foreach="props.picking.moves"
+                                t-as="move"
+                                t-key="move.id"
+                            >
+                                <tr t-att-class="props.moveRowClass(move)">
+                                    <td>
+                                        <div class="fw-semibold" t-esc="move.product" />
+                                        <small class="text-muted" t-esc="move.uom" />
+                                    </td>
+                                    <td class="text-end">
+                                        <span
+                                            class="fw-semibold"
+                                            t-esc="move.qty_done"
+                                        />
+                                        <span class="text-muted"> / </span>
+                                        <span t-esc="move.qty_expected" />
+                                    </td>
+                                    <td class="text-end">
+                                        <span
+                                            t-att-class="move.pending_qty &lt;= 0 ? 'text-success fw-semibold' : ''"
+                                            t-esc="move.pending_qty"
+                                        />
+                                    </td>
+                                    <td>
+                                        <span
+                                            class="badge"
+                                            t-att-class="'o_barcode_state_' + move.state"
+                                            t-esc="move.state"
+                                        />
+                                    </td>
+                                </tr>
+                            </t>
+                        </tbody>
+                    </table>
+                </div>
+            </t>
+            <t t-else="">
+                <p
+                    class="text-muted"
+                    t-esc="env._t('Inventory sessions will display their counted quants here.')"
+                />
+            </t>
+        </section>
+    </t>
+
+    <t t-name="stock_barcodes.BarcodeSessionChatter">
+        <section class="o_barcode_session_panel o_barcode_session_chatter">
+            <div class="o_barcode_session_panel_header">
+                <h3 class="h5 mb-0" t-esc="env._t('Notes &amp; activities')" />
+            </div>
+            <t t-if="props.messages.length">
+                <div class="o_barcode_session_messages">
+                    <t t-foreach="props.messages" t-as="message" t-key="message.id">
+                        <article class="o_barcode_session_message">
+                            <header>
+                                <strong t-esc="message.author || env._t('System')" />
+                                <span class="text-muted small" t-esc="message.date" />
+                            </header>
+                            <p class="mb-0" t-esc="message.body" />
+                        </article>
+                    </t>
+                </div>
+            </t>
+            <t t-else="">
+                <p class="text-muted" t-esc="env._t('No chatter messages yet.')" />
+            </t>
+        </section>
+    </t>
+
+    <t t-name="stock_barcodes.BarcodeSessionExtensionPanels">
+        <t t-foreach="panels" t-as="panel" t-key="panel.key">
+            <t t-set="PanelComponent" t-value="panel.Component" />
+            <t t-if="PanelComponent">
+                <t t-component="PanelComponent" t-props="panelProps(panel)" />
+            </t>
+        </t>
+    </t>
+
+    <t t-name="stock_barcodes.BarcodeSessionDemoPanel">
+        <section class="o_barcode_session_panel">
+            <div class="o_barcode_session_panel_header">
+                <h3 class="h6 mb-0" t-esc="env._t('Extensibility demo')" />
+                <span class="badge bg-info text-dark" t-esc="env._t('JS registry')" />
+            </div>
+            <p class="text-muted mb-2">
+                <t
+                    t-esc="env._t('This panel is injected via a registry entry, without patching the root component.')"
+                />
+            </p>
+            <ul class="mb-0">
+                <li>
+                    <strong t-esc="env._t('Picking:')" />
+                    <span class="ms-1" t-esc="pickingName || env._t('N/A')" />
+                </li>
+                <li class="text-muted">
+                    <t
+                        t-esc="env._t('A real addon could add buttons, hotkeys, RPC calls, etc.')"
+                    />
+                </li>
+            </ul>
+        </section>
+    </t>
+
+    <!-- XML-first extension hooks (other modules extend/replace these templates). -->
+    <t t-name="stock_barcodes.BarcodeSessionHeaderExtension" />
+    <t t-name="stock_barcodes.BarcodeSessionScanExtension" />
+    <t t-name="stock_barcodes.BarcodeSessionMovesExtension" />
+    <t t-name="stock_barcodes.BarcodeSessionChatterExtension" />
+</templates>

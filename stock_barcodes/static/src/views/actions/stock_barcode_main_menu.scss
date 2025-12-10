@@ -1,0 +1,134 @@
+div.o_action_manager {
+    &:has(.stock-barcodes-main-menu) {
+        background-color: var(--o-view-background-color, #f5f7fb);
+        overflow-y: auto;
+    }
+}
+
+.stock-barcodes-main-menu {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+    padding: 1.5rem;
+    gap: 1.5rem;
+    background-color: var(--o-view-background-color, #f5f7fb);
+    flex: 1;
+
+    @include media-breakpoint-down(sm) {
+        padding: 1rem;
+    }
+}
+
+.o_barcode_hub_header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.o_barcode_hub_breadcrumbs {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.o_barcode_breadcrumb_sep {
+    color: #adb5bd;
+}
+
+.o_barcode_breadcrumb_link {
+    padding: 0;
+    font-weight: 600;
+    color: inherit;
+}
+
+.o_barcode_hub_actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.o_barcode_empty {
+    text-align: center;
+    padding: 3rem 1rem;
+    background-color: #fff;
+    border-radius: 1rem;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.o_barcode_profiles_grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+}
+
+.o_barcode_profile_card {
+    padding: 0;
+    background-color: transparent;
+    box-shadow: none;
+}
+
+.o_barcode_profile_btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+    font-weight: 600;
+    border-width: 2px;
+}
+
+.o_barcode_profile_detail {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    flex: 1;
+    min-height: 0;
+}
+
+.o_barcode_operations_panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    flex: 1;
+    min-height: 0;
+}
+
+.o_barcode_operations_grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+    flex: 0 0 auto;
+    max-height: 70vh;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+}
+
+.o_barcode_operation_card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1.25rem;
+    background-color: #fff;
+    border-radius: 1rem;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+}
+
+.o_barcode_operation_card header {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    align-items: flex-start;
+}
+
+@include media-breakpoint-down(md) {
+    .o_barcode_hub_actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .o_barcode_profiles_grid,
+    .o_barcode_operations_grid {
+        grid-template-columns: 1fr;
+    }
+}
