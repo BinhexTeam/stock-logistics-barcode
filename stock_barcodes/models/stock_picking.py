@@ -70,3 +70,13 @@ class StockPicking(models.Model):
             )
 
         return res
+
+    def get_count_sign_delivery_slip(self):
+        filename = "%s_signed_delivery_slip.pdf" % self.name
+        return self.env["ir.attachment"].search_count(
+            [
+                ("res_model", "=", self._name),
+                ("res_id", "=", self.id),
+                ("name", "=", filename),
+            ]
+        )

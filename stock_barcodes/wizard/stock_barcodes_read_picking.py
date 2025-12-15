@@ -86,6 +86,22 @@ class WizStockBarcodesReadPicking(models.TransientModel):
     partner_name = fields.Char(related="partner_id.name")
     enable_add_product = fields.Boolean(compute="_compute_enable_add_product")
 
+    signature = fields.Image(help="Signature", copy=False, attachment=True)
+    is_enable_signature = fields.Boolean(compute="_compute_is_enable_signature")
+
+    def _compute_is_enable_signature(self):
+        for wiz in self:
+            wiz.is_enable_signature = (
+                self.env.user.has_group("stock.group_stock_sign_delivery")
+                and wiz.picking_id.picking_type_code == "outgoing"
+                and wiz.picking_id.state != "done"
+                )
+
+    def write(self, vals):
+        if "signature" in vals:
+            self.picking_id.signature = vals["signature"]
+        return super().write(vals)
+
     def action_show_detailed_operations(self):
         self.show_detailed_operations = not self.show_detailed_operations
 

@@ -48,6 +48,8 @@
             "/stock_barcodes/static/src/widgets/view_button.xml",
             "/stock_barcodes/static/src/views/actions/stock_barcode_main_menu.xml",
             "/stock_barcodes/static/src/**/*.scss",
+            "/stock_barcodes/static/src/**/*.esm.js",
+            "/stock_barcodes/static/src/**/*.xml",
         ],
     },
     "installable": True,
