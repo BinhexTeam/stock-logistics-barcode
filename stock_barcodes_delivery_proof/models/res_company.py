@@ -13,13 +13,3 @@ class ResCompany(models.Model):
         help="Allow capturing photos as delivery proof from the barcode "
         "scanner interface. Only applies to outgoing pickings (deliveries).",
     )
-    delivery_proof_level = fields.Selection(
-        selection=[
-            ("picking", "Per Picking"),
-            ("line", "Per Line"),
-        ],
-        string="Delivery Proof Capture Level",
-        default="picking",
-        help="Per Picking: Capture photos for the entire delivery.\n"
-        "Per Line: Capture photos for each product line individually.",
-    )

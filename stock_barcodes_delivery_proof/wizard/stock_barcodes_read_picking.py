@@ -1,26 +1,14 @@
 # Copyright 2025 Binhex - Antonio Ruban
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
 
-from odoo import _, api, fields, models
+from odoo import api, fields, models
 
 
 class WizStockBarcodesReadPicking(models.TransientModel):
     _inherit = "wiz.stock.barcodes.read.picking"
 
-    # Fields for UI
-    show_delivery_proof = fields.Boolean(
-        compute="_compute_show_delivery_proof",
-    )
-    delivery_proof_level = fields.Selection(
-        related="picking_id.company_id.delivery_proof_level",
-    )
-    delivery_proof_ids = fields.One2many(
-        related="picking_id.delivery_proof_ids",
-        readonly=False,
-    )
-    delivery_proof_count = fields.Integer(
-        related="picking_id.delivery_proof_count",
-    )
+    # Computed fields for UI
+    show_delivery_proof = fields.Boolean(compute="_compute_show_delivery_proof")
 
     @api.depends("picking_type_code", "picking_id.company_id.delivery_proof_enabled")
     def _compute_show_delivery_proof(self):
@@ -30,114 +18,232 @@ class WizStockBarcodesReadPicking(models.TransientModel):
                 and wiz.picking_id.company_id.delivery_proof_enabled
             )
 
-    def action_save_delivery_proof(self, image_data, move_line_id=False):
-        """Save the captured image as delivery proof.
+    def action_save_delivery_photo(self, move_line_id, image_data):
+        """Save a new delivery proof photo for a specific move line.
 
         Args:
+            move_line_id: ID of the stock.move.line
             image_data: Base64 encoded image data
-            move_line_id: Optional move line ID for line-level proof
 
         Returns:
-            The created stock.delivery.proof.image record
+            dict: Created photo record data
         """
         self.ensure_one()
 
-        vals = {
-            "image": image_data,
-            "name": _("Delivery Photo %s") % fields.Datetime.now(),
-            "picking_id": self.picking_id.id,
+        photo = self.env["stock.delivery.proof.image"].create(
+            {
+                "move_line_id": move_line_id,
+                "image": image_data,
+            }
+        )
+
+        return {
+            "id": photo.id,
+            "capture_date": photo.capture_date.isoformat()
+            if photo.capture_date
+            else None,
+            "captured_by": photo.captured_by_id.name if photo.captured_by_id else None,
         }
 
-        if move_line_id:
-            move_line = self.env["stock.move.line"].browse(move_line_id)
-            if move_line.exists() and move_line.picking_id == self.picking_id:
-                vals["move_line_id"] = move_line_id
+    def action_save_delivery_photo_from_todo(self, todo_id, image_data):
+        """Save photo to ALL move lines associated with a todo item.
 
-        return self.env["stock.delivery.proof.image"].create(vals)
-
-    def action_delete_delivery_proof(self, proof_id):
-        """Delete a delivery proof image.
+        This creates duplicate photo records (same image) for each move line.
+        Useful when one photo applies to multiple lots/packages of same product.
 
         Args:
-            proof_id: ID of the stock.delivery.proof.image to delete
+            todo_id (int): ID of wiz.stock.barcodes.read.todo
+            image_data (str): Base64 encoded image data
 
         Returns:
-            True if successful
+            dict: {
+                'success': bool,
+                'photo_ids': list of created photo IDs,
+                'move_line_count': number of lines affected,
+                'message': success/error message
+            }
         """
-        import logging
-
-        _logger = logging.getLogger(__name__)
-
-        _logger.info("=" * 80)
-        _logger.info("action_delete_delivery_proof called")
-        _logger.info("self: %s", self)
-        _logger.info("proof_id: %s (type: %s)", proof_id, type(proof_id))
-        _logger.info("self.picking_id: %s", self.picking_id)
-        _logger.info("=" * 80)
-
         self.ensure_one()
-        proof = self.env["stock.delivery.proof.image"].browse(proof_id)
+        todo = self.env["wiz.stock.barcodes.read.todo"].browse(todo_id)
 
-        _logger.info("Proof record: %s", proof)
-        _logger.info("Proof exists: %s", proof.exists())
-        if proof.exists():
-            _logger.info("Proof.picking_id: %s", proof.picking_id)
-            _logger.info("Matches: %s", proof.picking_id == self.picking_id)
+        if not todo.exists():
+            return {
+                "success": False,
+                "message": "Todo item not found",
+                "photo_ids": [],
+                "move_line_count": 0,
+            }
 
-        if proof.exists() and proof.picking_id == self.picking_id:
-            proof.unlink()
-            _logger.info("Photo deleted successfully")
+        if not todo.line_ids:
+            return {
+                "success": False,
+                "message": "No move lines found for this todo",
+                "photo_ids": [],
+                "move_line_count": 0,
+            }
+
+        # Create photo for each move line
+        photo_ids = []
+        for move_line in todo.line_ids:
+            photo = self.env["stock.delivery.proof.image"].create(
+                {
+                    "move_line_id": move_line.id,
+                    "image": image_data,
+                }
+            )
+            photo_ids.append(photo.id)
+
+        return {
+            "success": True,
+            "photo_ids": photo_ids,
+            "move_line_count": len(photo_ids),
+            "message": f"Photo saved to {len(photo_ids)} move line(s)",
+        }
+
+    def get_todo_photo_data(self, todo_id):
+        """Get all photos from all move lines associated with a todo.
+
+        Returns aggregated list of all photos with metadata for gallery display.
+
+        Args:
+            todo_id (int): ID of wiz.stock.barcodes.read.todo
+
+        Returns:
+            dict: {
+                'photos': list of photo dicts with metadata,
+                'total_count': total number of photos,
+                'lines_count': number of move lines,
+                'lines_with_photos': number of lines that have photos
+            }
+        """
+        self.ensure_one()
+        todo = self.env["wiz.stock.barcodes.read.todo"].browse(todo_id)
+
+        if not todo.exists():
+            return {
+                "photos": [],
+                "total_count": 0,
+                "lines_count": 0,
+                "lines_with_photos": 0,
+            }
+
+        # Collect all photos from all move lines
+        all_photos = []
+        lines_with_photos = 0
+
+        for move_line in todo.line_ids:
+            if move_line.delivery_proof_image_ids:
+                lines_with_photos += 1
+
+            for photo in move_line.delivery_proof_image_ids:
+                all_photos.append(
+                    {
+                        "id": photo.id,
+                        "capture_date": photo.capture_date.isoformat()
+                        if photo.capture_date
+                        else None,
+                        "captured_by": photo.captured_by_id.name
+                        if photo.captured_by_id
+                        else None,
+                        "move_line_id": move_line.id,
+                        "product_name": move_line.product_id.display_name,
+                        "lot_name": move_line.lot_id.name if move_line.lot_id else None,
+                        "qty": move_line.quantity,
+                        "uom": move_line.product_uom_id.name,
+                    }
+                )
+
+        # Sort by capture date (newest first)
+        all_photos.sort(key=lambda x: x["capture_date"] or "", reverse=True)
+
+        return {
+            "photos": all_photos,
+            "total_count": len(all_photos),
+            "lines_count": len(todo.line_ids),
+            "lines_with_photos": lines_with_photos,
+        }
+
+    def action_delete_delivery_photo(self, photo_id):
+        """Delete a delivery proof photo.
+
+        Args:
+            photo_id: ID of the stock.delivery.proof.image to delete
+
+        Returns:
+            bool: True if successful
+        """
+        self.ensure_one()
+        photo = self.env["stock.delivery.proof.image"].browse(photo_id)
+
+        if photo.exists():
+            photo.unlink()
             return True
-
-        _logger.warning(
-            "Photo NOT deleted - proof doesn't exist or doesn't match picking"
-        )
         return False
 
-    def get_delivery_proof_data(self):
-        """Get delivery proof images data for the JS widget.
+    def get_move_line_proof_data(self, move_line_id):
+        """Get delivery proof data for a specific move line.
+
+        Args:
+            move_line_id: ID of the stock.move.line
 
         Returns:
-            List of dictionaries with proof image data
+            dict: Dictionary with photos data for the move line
         """
         self.ensure_one()
-        proofs = self.picking_id.delivery_proof_ids
-        return [
-            {
-                "id": proof.id,
-                "name": proof.name,
-                "capture_date": proof.capture_date.isoformat()
-                if proof.capture_date
-                else None,
-                "captured_by": proof.captured_by_id.name
-                if proof.captured_by_id
-                else None,
-                "move_line_id": proof.move_line_id.id if proof.move_line_id else None,
-                "product_name": proof.move_line_id.product_id.display_name
-                if proof.move_line_id
-                else None,
-            }
-            for proof in proofs
-        ]
+        move_line = self.env["stock.move.line"].browse(move_line_id)
 
-    def get_move_lines_for_proof(self):
-        """Get move lines available for line-level proof capture.
+        if not move_line.exists():
+            return {"photos": [], "photo_count": 0}
+
+        return {
+            "photos": [
+                {
+                    "id": photo.id,
+                    "capture_date": photo.capture_date.isoformat()
+                    if photo.capture_date
+                    else None,
+                    "captured_by": photo.captured_by_id.name
+                    if photo.captured_by_id
+                    else None,
+                }
+                for photo in move_line.delivery_proof_image_ids
+            ],
+            "photo_count": move_line.delivery_proof_count,
+        }
+
+    def action_open_line_photos(self, move_line_id):
+        """Open photo gallery for a specific move line.
+
+        Args:
+            move_line_id: ID of the stock.move.line
 
         Returns:
-            List of dictionaries with move line data
+            dict: Action dictionary for opening photo modal (handled in JS)
         """
         self.ensure_one()
-        if self.delivery_proof_level != "line":
-            return []
+        move_line = self.env["stock.move.line"].browse(move_line_id)
 
-        return [
-            {
-                "id": line.id,
-                "product_name": line.product_id.display_name,
-                "qty_done": line.qty_done,
-                "proof_count": line.delivery_proof_count,
-            }
-            for line in self.picking_id.move_line_ids.filtered(
-                lambda line: line.qty_done > 0
-            )
-        ]
+        if move_line.exists():
+            return self.get_move_line_proof_data(move_line_id)
+        return {"photos": [], "photo_count": 0}
+
+    def action_open_line_photos_modal(self):
+        """Open photo gallery modal for a todo item.
+
+        This is called from the kanban button. The todo_id comes from context.
+        We return a client action that triggers the JS modal.
+        """
+        todo_id = self.env.context.get("todo_id")
+
+        if not todo_id:
+            return {"type": "ir.actions.act_window_close"}
+
+        # Return a client action to trigger JS
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_delivery_proof_modal",
+            "params": {
+                "todo_id": todo_id,
+                "wizard_id": self.id,
+            },
+        }

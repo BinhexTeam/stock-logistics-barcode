@@ -6,135 +6,72 @@
         <field name="model">stock.picking</field>
         <field name="inherit_id" ref="stock.view_picking_form" />
         <field name="arch" type="xml">
-            <!-- Add smart button -->
-            <xpath expr="//div[@name='button_box']" position="inside">
-                <button
-                    name="action_view_delivery_proof"
-                    type="object"
-                    class="oe_stat_button"
-                    icon="fa-camera"
-                    invisible="not show_delivery_proof or delivery_proof_count == 0"
-                >
-                    <field name="show_delivery_proof" invisible="1" />
-                    <field
-                        name="delivery_proof_count"
-                        widget="statinfo"
-                        string="Photos"
-                    />
-                </button>
-            </xpath>
 
             <!-- Add Delivery Proof page -->
-            <xpath expr="//page[@name='operations']" position="after">
+            <xpath expr="//page[last()]" position="before">
                 <page
                     name="delivery_proof"
                     string="Delivery Proof"
                     invisible="not show_delivery_proof"
                 >
-                    <group>
-                        <group>
-                            <field
-                                name="delivery_proof_count"
-                                string="Total Photos"
-                                readonly="1"
-                            />
-                        </group>
-                        <group>
-                            <button
-                                name="action_add_delivery_proof"
-                                type="object"
-                                string="Add Photo"
-                                class="btn-primary"
-                                icon="fa-camera"
-                                invisible="state == 'done'"
-                            />
-                        </group>
-                    </group>
+                    <field name="show_delivery_proof" invisible="1" />
 
-                    <field name="delivery_proof_ids" nolabel="1">
-                        <tree editable="bottom" decoration-muted="proof_type == 'line'">
-                            <field
-                                name="image"
-                                widget="image"
-                                options="{'size': [100, 100]}"
-                            />
-                            <field name="name" />
-                            <field name="capture_date" />
-                            <field name="captured_by_id" />
-                            <field name="proof_type" />
-                            <field
-                                name="move_line_id"
-                                optional="show"
-                                domain="[('picking_id', '=', parent.id)]"
-                            />
-                            <field name="notes" optional="hide" />
-                        </tree>
-                        <form>
-                            <sheet>
-                                <group>
-                                    <group>
-                                        <field name="name" />
-                                        <field name="capture_date" />
-                                        <field name="captured_by_id" />
-                                        <field name="proof_type" />
-                                        <field
-                                            name="move_line_id"
-                                            invisible="proof_type != 'line'"
-                                            domain="[('picking_id', '=', parent.id)]"
-                                        />
-                                    </group>
-                                    <group>
-                                        <field
-                                            name="image"
-                                            widget="image"
-                                            class="oe_avatar"
-                                        />
-                                    </group>
-                                </group>
-                                <group>
-                                    <field
-                                        name="notes"
-                                        placeholder="Add notes about this photo..."
-                                    />
-                                </group>
-                            </sheet>
-                        </form>
-                        <kanban>
-                            <field name="id" />
-                            <field name="name" />
-                            <field name="capture_date" />
-                            <field name="image" />
-                            <templates>
-                                <t t-name="kanban-box">
-                                    <div class="oe_kanban_global_click">
-                                        <div class="o_kanban_image">
-                                            <img
-                                                t-att-src="kanban_image('stock.delivery.proof.image', 'image', record.id.raw_value)"
-                                                alt="Delivery proof"
-                                                class="o_image_64_max"
-                                            />
-                                        </div>
-                                        <div class="oe_kanban_details">
-                                            <strong><field name="name" /></strong>
-                                            <div t-if="record.capture_date.value">
-                                                <i class="fa fa-clock-o" />
-                                                <t t-esc="record.capture_date.value" />
-                                            </div>
-                                            <div
-                                                t-if="record.move_line_id.value"
-                                                class="text-muted"
-                                            >
-                                                <i class="fa fa-cube" />
-                                                <field name="move_line_id" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </t>
-                            </templates>
-                        </kanban>
-                    </field>
+                    <!-- Info message -->
+                    <div class="alert alert-info" role="alert">
+                        <p>
+                            <i class="fa fa-info-circle" />
+                            Delivery proof photos are captured per move line during the barcode scanning process.
+                            This tab shows only move lines that have at least one photo.
+                        </p>
+                    </div>
+
+                    <!-- Display only move lines with photos -->
+                    <group string="Proof Photos">
+                        <field
+                            name="move_lines_with_photos"
+                            nolabel="1"
+                            colspan="2"
+                            context="{'tree_view_ref': 'stock_barcodes_delivery_proof.view_move_line_delivery_proof_tree'}"
+                        >
+                            <tree>
+                                <field name="product_id" />
+                                <field name="lot_id" optional="show" />
+                                <field name="quantity" />
+                                <field name="product_uom_id" />
+                                <field name="delivery_proof_count" string="Photos" />
+                                <button
+                                    name="action_open_line_photos"
+                                    type="object"
+                                    string="View Photos"
+                                    icon="fa-camera"
+                                />
+                            </tree>
+                        </field>
+                    </group>
                 </page>
             </xpath>
+        </field>
+    </record>
+
+    <!-- Tree view for move lines showing photos -->
+    <record id="view_move_line_delivery_proof_tree" model="ir.ui.view">
+        <field name="name">stock.move.line.delivery.proof.tree</field>
+        <field name="model">stock.move.line</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="product_id" />
+                <field name="lot_id" optional="show" />
+                <field name="quantity" />
+                <field name="product_uom_id" />
+                <field name="delivery_proof_count" string="Photos" />
+                <button
+                    name="action_open_line_photos"
+                    type="object"
+                    string="View Photos"
+                    icon="fa-camera"
+                    invisible="delivery_proof_count == 0"
+                />
+            </tree>
         </field>
     </record>
 </odoo>

@@ -18,36 +18,6 @@
                     </button>
                 </div>
 
-                <!-- Move line selector (for line-level proof) -->
-                <div class="move-line-selector" t-if="showMoveLineSelector">
-                    <label class="mb-2">Select product line (optional):</label>
-                    <div class="move-line-list">
-                        <button
-                            t-attf-class="move-line-item {{ !state.selectedMoveLineId ? 'selected' : '' }}"
-                            t-on-click="() => this.selectMoveLine(null)"
-                        >
-                            <i class="fa fa-truck me-2" />
-                            Entire Delivery
-                        </button>
-                        <t t-foreach="props.moveLines" t-as="line" t-key="line.id">
-                            <button
-                                t-attf-class="move-line-item {{ state.selectedMoveLineId === line.id ? 'selected' : '' }}"
-                                t-on-click="() => this.selectMoveLine(line.id)"
-                            >
-                                <span class="line-product" t-esc="line.product_name" />
-                                <span class="line-qty">
-                                    Qty: <t t-esc="line.qty_done" />
-                                    <t t-if="line.proof_count > 0">
-                                        <span class="badge bg-info ms-1">
-                                            <t t-esc="line.proof_count" /> photos
-                                        </span>
-                                    </t>
-                                </span>
-                            </button>
-                        </t>
-                    </div>
-                </div>
-
                 <!-- Camera body -->
                 <div class="camera-body">
                     <!-- Error state -->

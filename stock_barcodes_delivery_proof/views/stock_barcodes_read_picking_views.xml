@@ -12,48 +12,49 @@
             ref="stock_barcodes.view_stock_barcodes_read_picking_form"
         />
         <field name="arch" type="xml">
-            <!-- Add invisible fields for context in the main form bottom bar -->
+
+            <!-- Add hidden field for context -->
             <xpath
                 expr="//button[@name='action_clean_values']/../field[@name='picking_state']"
                 position="after"
             >
                 <field name="show_delivery_proof" invisible="1" />
-                <field name="delivery_proof_count" invisible="1" />
-                <field name="delivery_proof_level" invisible="1" />
             </xpath>
 
-            <!-- Note: Camera capture button is integrated in the delivery_proof widget below -->
-            <!-- The widget automatically displays a "Capture Photo" button when enabled -->
+            <!-- Add delivery_proof_count field to pending_move_ids kanban -->
+            <xpath
+                expr="//field[@name='pending_move_ids']//field[@name='picking_state']"
+                position="after"
+            >
+                <field name="delivery_proof_count" />
+                <field name="has_delivery_proof" />
+            </xpath>
 
-            <!-- Add delivery proof gallery section before pending moves -->
-            <xpath expr="//field[@name='pending_move_ids']/.." position="before">
-                <div
-                    class="delivery-proof-gallery-section bg-light p-3 mb-3"
-                    invisible="not show_delivery_proof"
+            <!-- Add camera button to pending_move_ids kanban -->
+            <xpath
+                expr="//field[@name='pending_move_ids']//button[@name='action_barcode_inventory_quant_edit']"
+                position="after"
+            >
+                <!-- Camera button appears after edit button, only when qty_picked > 0 -->
+                <button
+                    name="action_open_line_photos_modal"
+                    type="object"
+                    class="btn mt0 btn-delivery-camera-line ml-2"
+                    title="Delivery Photos"
+                    context="{'wiz_barcode_id': parent.id, 'todo_id': id}"
+                    invisible="qty_picked == 0 or not parent.show_delivery_proof"
                 >
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <h5 class="mb-0">
-                            <i class="fa fa-camera text-info" /> Delivery Photos
-                        </h5>
-                        <field
-                            name="delivery_proof_count"
-                            invisible="delivery_proof_count == 0"
-                            class="badge bg-info"
-                            readonly="1"
-                            nolabel="1"
-                            string="photos"
+                    <div class="camera-button-wrapper">
+                        <span
+                            t-if="record.delivery_proof_count.raw_value > 0"
+                            class="badge badge-primary photo-badge"
+                            t-esc="record.delivery_proof_count.raw_value"
                         />
+                        <i class="fa fa-camera fa-2x" />
                     </div>
-
-                    <!-- Use custom widget for delivery proof -->
-                    <field
-                        name="delivery_proof_ids"
-                        widget="delivery_proof"
-                        nolabel="1"
-                        options="{'no_create': True, 'no_edit': True}"
-                    />
-                </div>
+                </button>
             </xpath>
+
         </field>
     </record>
 </odoo>

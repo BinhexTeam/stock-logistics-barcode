@@ -5,51 +5,14 @@
         <field name="model">res.config.settings</field>
         <field name="inherit_id" ref="stock.res_config_settings_view_form" />
         <field name="arch" type="xml">
-            <xpath expr="//app[@name='stock']" position="inside">
-                <block
-                    title="Delivery Proof of Delivery"
-                    name="delivery_proof_settings"
+            <xpath expr="//setting[@id='signature_delivery_orders']" position="after">
+                <setting
+                    id="delivery_proof_enabled_setting"
+                    help="Enable photo capture as proof of delivery from the barcode scanner interface"
+                    documentation="/stock_barcodes_delivery_proof/readme/CONFIGURE.html"
                 >
-                    <setting
-                        id="delivery_proof_enabled_setting"
-                        help="Enable photo capture as proof of delivery for outgoing pickings"
-                        documentation="/stock_barcodes_delivery_proof/readme/CONFIGURE.html"
-                    >
-                        <field name="delivery_proof_enabled" />
-                        <label for="delivery_proof_enabled" />
-                        <div class="text-muted">
-                            Allow capturing photos as delivery proof from the barcode scanner interface.
-                            Only applies to outgoing pickings (deliveries to customers).
-                        </div>
-
-                        <div
-                            class="content-group mt-3"
-                            invisible="not delivery_proof_enabled"
-                        >
-                            <div class="row mt16">
-                                <label
-                                    for="delivery_proof_level"
-                                    string="Capture Level"
-                                    class="col-lg-3 o_light_label"
-                                />
-                                <field
-                                    name="delivery_proof_level"
-                                    widget="radio"
-                                    class="col-lg-9"
-                                    options="{'horizontal': true}"
-                                />
-                            </div>
-                            <div class="text-muted mt-2 ms-3">
-                                <ul class="mb-0">
-                                    <li><strong
-                                        >Per Picking:</strong> Capture photos for the entire delivery (recommended for simple workflows)</li>
-                                    <li><strong
-                                        >Per Line:</strong> Capture photos for each product line individually (for detailed tracking)</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </setting>
-                </block>
+                    <field name="delivery_proof_enabled" />
+                </setting>
             </xpath>
         </field>
     </record>

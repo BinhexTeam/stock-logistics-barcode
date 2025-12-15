@@ -4,16 +4,6 @@
         <div class="delivery-proof-carousel">
             <t t-if="hasImages">
                 <div class="carousel-container">
-                    <!-- Indicators -->
-                    <div class="carousel-indicators" t-if="hasMultipleImages">
-                        <t t-foreach="props.images" t-as="img" t-key="img.id">
-                            <button
-                                t-attf-class="indicator {{ img_index === state.currentIndex ? 'active' : '' }}"
-                                t-on-click="() => this.goToIndex(img_index)"
-                            />
-                        </t>
-                    </div>
-
                     <!-- Current image -->
                     <div class="carousel-image-wrapper" t-on-click="toggleFullscreen">
                         <img
@@ -35,22 +25,25 @@
 
                     <!-- Info and actions -->
                     <div class="carousel-info">
-                        <span class="image-counter" t-if="hasMultipleImages">
-                            <t t-esc="state.currentIndex + 1" /> / <t
-                                t-esc="props.images.length"
-                            />
-                        </span>
-                        <span class="image-date" t-if="currentImage?.capture_date">
-                            <i class="fa fa-clock-o me-1" />
-                            <t t-esc="formatDate(currentImage.capture_date)" />
-                        </span>
+                        <div class="info-left">
+                            <span class="image-counter" t-if="hasMultipleImages">
+                                <t t-esc="state.currentIndex + 1" /> / <t
+                                    t-esc="props.images.length"
+                                />
+                            </span>
+                            <span class="image-date" t-if="currentImage?.capture_date">
+                                <i class="fa fa-clock-o me-1" />
+                                <t t-esc="formatDate(currentImage.capture_date)" />
+                            </span>
+                        </div>
                         <button
-                            class="btn btn-sm btn-danger ms-2"
+                            class="btn btn-danger btn-delete"
                             t-if="!props.readonly and props.onDelete"
                             t-on-click="deleteImage"
-                            title="Delete photo"
+                            title="Delete this photo"
                         >
                             <i class="fa fa-trash" />
+                            <span class="delete-text">Delete</span>
                         </button>
                     </div>
                 </div>
