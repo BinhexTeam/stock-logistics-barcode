@@ -1,0 +1,18 @@
+[project]
+name = "odoo-addon-stock_barcodes_delivery_proof"
+version = "17.0.1.0.0"
+readme = "README.rst"
+requires-python = ">=3.10"
+license = { text = "AGPL-3" }
+authors = [{ name = "Binhex", email = "aruban@binhex.cloud" }]
+classifiers = [
+    "Programming Language :: Python",
+    "Framework :: Odoo",
+    "Framework :: Odoo :: 17.0",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
+]
+dependencies = ["odoo-addon-stock_barcodes>=17.0dev,<17.1dev"]
+
+[build-system]
+requires = ["whool"]
+build-backend = "whool.buildapi"

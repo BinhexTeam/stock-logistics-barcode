@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates xml:space="preserve">
+    <t t-name="stock_barcodes_delivery_proof.DeliveryProofWidget">
+        <div class="delivery-proof-widget">
+            <t t-if="state.isLoading">
+                <div class="text-center p-3">
+                    <i class="fa fa-spinner fa-spin fa-2x text-muted" />
+                    <p class="text-muted mt-2">Loading photos...</p>
+                </div>
+            </t>
+            <t t-else="">
+                <!-- Header with counter and actions -->
+                <div
+                    class="d-flex align-items-center justify-content-between mb-3"
+                    t-if="hasImages or !isReadonly"
+                >
+                    <span class="text-muted" t-if="hasImages">
+                        <i class="fa fa-camera me-1" />
+                        <t t-esc="imageCount" /> photo<t t-if="imageCount !== 1">s</t>
+                    </span>
+                    <button
+                        class="btn btn-primary btn-sm"
+                        t-if="!isReadonly"
+                        t-on-click="openCamera"
+                        title="Capture photo"
+                    >
+                        <i class="fa fa-camera me-1" />
+                        <t t-if="hasImages">Add Photo</t>
+                        <t t-else="">Capture Photo</t>
+                    </button>
+                </div>
+
+            <!-- Image carousel -->
+            <ImageCarousel
+                    images="state.images"
+                    onDelete="!isReadonly ? this.onDelete : undefined"
+                    readonly="isReadonly"
+                />
+
+            <!-- Camera capture modal -->
+            <CameraCapture
+                    t-if="state.showCamera"
+                    onCapture="this.onCapture"
+                    onClose="this.closeCamera"
+                    moveLines="state.moveLines"
+                    proofLevel="proofLevel"
+                />
+            </t>
+        </div>
+    </t>
+</templates>

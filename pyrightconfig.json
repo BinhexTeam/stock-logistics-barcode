@@ -1,0 +1,34 @@
+{
+  "include": ["odoo/custom/src", "odoo/custom/src/private"],
+  "exclude": [
+    "**/__pycache__",
+    "**/node_modules",
+    "**/.git",
+    "**/static",
+    "**/filestore",
+    "**/sessions"
+  ],
+  "extraPaths": [
+    "/home/adruban/Workspace/Doodba_ENV/O17/odoo",
+    "/home/adruban/Workspace/Doodba_ENV/O17/odoo/custom/src/odoo",
+    "/home/adruban/Workspace/Doodba_ENV/O17/odoo/custom/src/odoo/odoo",
+    "/home/adruban/Workspace/Doodba_ENV/O17/odoo/custom/src/odoo/addons",
+    "/home/adruban/Workspace/Doodba_ENV/O17/odoo/custom/src/odoo/odoo/addons",
+    "/home/adruban/Workspace/Doodba_ENV/O17/odoo/custom/src/stock-logistics-barcode-custom",
+    "/home/adruban/Workspace/Doodba_ENV/O17/odoo/custom/src/stock-logistics-workflow",
+    "/home/adruban/Workspace/Doodba_ENV/O17/odoo/custom/src/manufacture",
+    "/home/adruban/Workspace/Doodba_ENV/O17/odoo/custom/src/web",
+    "/home/adruban/Workspace/Doodba_ENV/O17/odoo/custom/src",
+    "/home/adruban/Workspace/Doodba_ENV/O17/odoo/auto/addons",
+    "/home/adruban/Workspace/Doodba_ENV/O17/odoo/custom/src/enterprise",
+    "/home/adruban/Workspace/Doodba_ENV/O17",
+    "/home/adruban/Workspace/Doodba_ENV/O17/odoo/custom/src/private",
+    "/home/adruban/.local/share/nvim/odoo-stubs/17.0/odoo-stubs"
+  ],
+  "typeCheckingMode": "basic",
+  "pythonVersion": "3.10",
+  "pythonPlatform": "Linux",
+  "reportGeneralTypeIssues": false,
+  "reportOptionalMemberAccess": false,
+  "reportAttributeAccessIssue": false
+}
