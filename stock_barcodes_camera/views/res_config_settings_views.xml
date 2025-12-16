@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="res_config_settings_view_form" model="ir.ui.view">
+            <field name="name">res.config.settings.view.form.inherit.stock.barcodes.camera</field>
+            <field name="model">res.config.settings</field>
+            <field name="priority" eval="35"/>
+            <!-- IMPORTANT: inherit STOCK settings view (Odoo 17 uses <app>/<block>/<setting>) -->
+            <field name="inherit_id" ref="stock.res_config_settings_view_form"/>
+            <field name="arch" type="xml">
+
+                <!-- Insert inside the Barcode block created by stock settings -->
+                <xpath expr="//app[@name='stock']/block[@name='barcode_setting_container']" position="inside">
+                    <setting id="camera_barcode_scanner"
+                             string="Camera Barcode Scanner"
+                             help="Scan barcodes using your device camera from the barcode wizard.">
+                        <field name="enable_camera_barcode_scanner"/>
+                    </setting>
+                </xpath>
+
+            </field>
+        </record>
+
+    </data>
+</odoo>

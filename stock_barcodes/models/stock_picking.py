@@ -1,6 +1,7 @@
 # Copyright 2019 Sergio Teruel <sergio.teruel@tecnativa.com>
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
 from odoo import models
+from odoo.exceptions import ValidationError, UserError
 
 
 class StockPicking(models.Model):
@@ -45,6 +46,11 @@ class StockPicking(models.Model):
         return action
 
     def button_validate(self):
+        count_sign = self.get_count_sign_delivery_slip()
+        if count_sign == 0:
+            raise UserError(
+                "You must sign the delivery slip before validate the picking."
+            )
         put_in_pack_picks = self.filtered(
             lambda p: p.picking_type_id.barcode_option_group_id.auto_put_in_pack
             and not p.move_line_ids.result_package_id
