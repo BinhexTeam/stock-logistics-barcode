@@ -22,9 +22,12 @@
         "views/stock_barcodes_option_view.xml",
         "views/stock_location_views.xml",
         "views/stock_picking_views.xml",
+        "views/stock_picking_barcode_filter_view.xml",
         "wizard/stock_production_lot_views.xml",
         "wizard/stock_barcodes_read_views.xml",
         "wizard/stock_barcodes_read_picking_views.xml",
+        "wizard/stock_barcodes_pick_location_view.xml",
+        "wizard/stock_barcodes_read_picking_filter_views.xml",
         "wizard/stock_barcodes_read_todo_view.xml",
         "wizard/stock_barcodes_read_inventory_views.xml",
         # Keep order
@@ -37,6 +40,8 @@
     ],
     "assets": {
         "web.assets_backend": [
+            "/stock_barcodes/static/src/views/stock_picking_barcode_filter.esm.js",
+            "/stock_barcodes/static/src/views/actions/stock_barcode_scan_logger.esm.js",
             "/stock_barcodes/static/src/**/*.esm.js",
             (
                 "after",

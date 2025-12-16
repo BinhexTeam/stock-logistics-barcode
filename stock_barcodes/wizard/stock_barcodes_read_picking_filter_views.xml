@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="view_stock_barcodes_read_picking_filter_form" model="ir.ui.view">
+        <field name="name">stock.barcodes.read.picking.filter.form</field>
+        <field name="model">wiz.stock.barcodes.read.picking</field>
+        <field name="inherit_id" eval="False" />
+        <field name="arch" type="xml">
+            <form string="Filter Pickings" class="o_stock_barcode_simple">
+                <field name="_barcode_scanned" widget="barcode_handler" invisible="1" />
+                <field name="barcode" invisible="1" />
+                <group>
+                    <field name="picking_id" readonly="1" />
+                    <field name="filter_message" readonly="1" />
+                    <field name="is_filter_active" invisible="1" />
+                    <field name="picking_filter_domain" invisible="1" />
+                    <field name="filtered_picking_ids" invisible="1" />
+                </group>
+                <button
+                    name="action_clear_filter"
+                    type="object"
+                    string="Clear"
+                    class="btn btn-secondary"
+                />
+                <button name="dummy_on_barcode_scanned" type="object" class="d-none" />
+            </form>
+        </field>
+    </record>
+
+    <record id="action_stock_barcodes_picking_filter" model="ir.actions.act_window">
+        <field name="name">Filter Pickings by Barcode</field>
+        <field name="res_model">wiz.stock.barcodes.read.picking</field>
+        <field name="view_mode">form</field>
+        <field name="target">fullscreen</field>
+        <field name="context">{
+            'barcode_filter_mode': True,
+        }</field>
+    </record>
+</odoo>

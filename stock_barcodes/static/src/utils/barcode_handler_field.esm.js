@@ -20,16 +20,22 @@ patch(BarcodeHandlerField.prototype, {
 
         // Handler estable (misma referencia para subscribe/unsubscribe)
         this._onBusNotification = async (notifications = []) => {
-            for (const {type} of notifications) {
-                if (type === "stock_barcodes_refresh_data") {
-                    const model = this.env?.model || this.props?.record?.model;
-                    const rootModel = model?.root || this.env?.model?.root;
-                    if (rootModel?.load) {
-                        await rootModel.load();
-                    }
-                    if (model?.notify) {
-                        model.notify();
-                    }
+            for (const notification of notifications) {
+                const channel = notification?.channel;
+                const payload =
+                    notification?.payload || notification?.message || notification;
+                const type = payload?.type;
+                if (channel !== "barcode_reload" || type !== "stock_barcodes_refresh_data") {
+                    continue;
+                }
+
+                const model = this.env?.model || this.props?.record?.model;
+                const rootModel = model?.root || this.env?.model?.root;
+                if (rootModel?.load) {
+                    await rootModel.load();
+                }
+                if (model?.notify) {
+                    model.notify();
                 }
             }
         };
@@ -62,11 +68,9 @@ patch(BarcodeHandlerField.prototype, {
             _origOnBarcodeScanned.call(this, event);
         }
         const resModel = this.props?.record?.resModel || "";
+        // The FormController patch already dispatches wizard scans; skip duplicating calls here
         if (resModel.includes("wiz.stock.barcodes.read")) {
-            const btn = document.getElementById("dummy_on_barcode_scanned");
-            if (btn instanceof HTMLElement) {
-                btn.click();
-            }
+            return;
         }
     },
 });

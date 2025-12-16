@@ -8,17 +8,18 @@
                 <sheet>
                     <group>
                         <group>
-                            <field name="name" />
-                            <field name="barcode_guided_mode" />
+                            <field name="name" required="1" />
+                            <field name="code" required="1" />
                         </group>
                         <group>
-                            <field name="code" />
+                            <field name="barcode_guided_mode" />
                             <field
                                 name="display_notification"
                                 widget="boolean_toggle"
                             />
                         </group>
                     </group>
+
                     <group string="Behavior settings">
                         <group>
                             <field name="manual_entry" />
@@ -54,20 +55,21 @@
                             <field name="show_owner" />
                         </group>
                     </group>
+
                     <separator string="Steps to scan" />
                     <field name="option_ids">
                         <list editable="bottom">
-                            <field name="step" />
                             <field name="sequence" widget="handle" />
-                            <field name="name" />
-                            <field name="field_name" />
+                            <field name="step" required="1" />
+                            <field name="name" required="1" />
+                            <field name="field_name" required="1" />
+                            <field name="to_scan" required="1" />
+                            <field name="required" />
                             <field name="filled_default" />
                             <field
                                 name="forced"
                                 column_invisible="parent.barcode_guided_mode == False"
                             />
-                            <field name="to_scan" />
-                            <field name="required" />
                             <field name="clean_after_done" />
                         </list>
                     </field>

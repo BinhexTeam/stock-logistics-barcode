@@ -35,6 +35,7 @@
                             type="object"
                             icon="fa-barcode"
                             class="btn btn-secondary"
+                            title="Scan barcodes"
                         />
                     </div>
                 </div>
@@ -84,6 +85,15 @@
             </xpath>
         </field>
     </record>
+    <record id="stock_picking_tree_barcode" model="ir.ui.view">
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.vpicktree" />
+        <field name="arch" type="xml">
+            <list position="attributes">
+                <attribute name="js_class">stock_picking_barcode_list</attribute>
+            </list>
+        </field>
+    </record>
     <record id="view_picking_type_form" model="ir.ui.view">
         <field name="model">stock.picking.type</field>
         <field name="inherit_id" ref="stock.view_picking_type_form" />
@@ -109,26 +119,6 @@
                     domain="[('barcode_option_group_id','!=',False)]"
                 />
             </field>
-        </field>
-    </record>
-
-    <record id="stock_barcodes_action_picking_tree_ready" model="ir.actions.act_window">
-        <field name="name">Operations</field>
-        <field name="res_model">stock.picking</field>
-        <field name="type">ir.actions.act_window</field>
-        <field name="view_mode">kanban</field>
-        <field
-            name="context"
-        >{'contact_display': 'partner_address', 'search_default_available': 1}
-        </field>
-        <field name="search_view_id" ref="stock.view_picking_internal_search" />
-        <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">
-                No transfer found. Let's create one!
-            </p>
-            <p>
-                Transfers allow you to move products from one location to another.
-            </p>
         </field>
     </record>
 

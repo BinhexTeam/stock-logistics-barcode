@@ -1,6 +1,7 @@
 # Copyright 2019 Sergio Teruel <sergio.teruel@tecnativa.com>
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
 import logging
+from datetime import timedelta
 
 from odoo import _, api, fields, models
 
@@ -21,6 +22,7 @@ class WizStockBarcodesRead(models.AbstractModel):
     def _get_product_domain(self):
         return [("type", "in", self._allowed_product_types)]
 
+    _barcode_scanned = fields.Char()
     barcode = fields.Char()
     res_model_id = fields.Many2one(comodel_name="ir.model", index=True)
     res_id = fields.Integer(index=True)
@@ -36,6 +38,9 @@ class WizStockBarcodesRead(models.AbstractModel):
         readonly=False,
         store=True,
     )
+    # Track last processed scan to suppress duplicate immediate calls (onchange + dummy)
+    last_scan_barcode = fields.Char(store=True)
+    last_scan_at = fields.Datetime(store=True)
     location_id = fields.Many2one(comodel_name="stock.location")
     location_dest_id = fields.Many2one(
         comodel_name="stock.location", string="Location dest."
@@ -104,6 +109,9 @@ class WizStockBarcodesRead(models.AbstractModel):
     product_in_stock = fields.Float(compute="_compute_product_in_stock")
     show_stock = fields.Boolean(related="option_group_id.show_stock")
     show_owner = fields.Boolean(related="option_group_id.show_owner")
+    # Track last scanned combination to auto-increment quantities per lot/serial
+    last_product_id = fields.Many2one(comodel_name="product.product")
+    last_lot_identifier = fields.Char()
 
     def _compute_show_form_scan(self):
         for barcode in self:
@@ -234,10 +242,23 @@ class WizStockBarcodesRead(models.AbstractModel):
                 self._set_messagge_info("more_match", _("More than one product found"))
                 return False
             elif product.type not in self._allowed_product_types:
+                _logger.info(
+                    "[BARCODE UI] product rejected by type | barcode=%s product=%s type=%s allowed=%s",
+                    self.barcode,
+                    product.display_name,
+                    product.type,
+                    self._allowed_product_types,
+                )
                 self._set_messagge_info(
                     "not_found", _("The product type is not allowed")
                 )
                 return False
+            _logger.info(
+                "[BARCODE UI] product hit | barcode=%s product=%s tracking=%s",
+                self.barcode,
+                product.display_name,
+                product.tracking,
+            )
             self.action_product_scaned_post(product)
             if (
                 self.option_group_id.fill_fields_from_lot
@@ -262,11 +283,23 @@ class WizStockBarcodesRead(models.AbstractModel):
 
     def process_barcode_lot_id(self):
         if self.env.user.has_group("stock.group_production_lot"):
-            lot_domain = [("name", "=", self.barcode)]
+            # Accept both lot name and lot reference so scanners can use either
+            lot_domain = ["|", ("name", "=", self.barcode), ("ref", "=", self.barcode)]
             if self.product_id:
                 lot_domain.append(("product_id", "=", self.product_id.id))
             lot = self.env["stock.lot"].search(lot_domain)
             if len(lot) == 1:
+                _logger.info(
+                    "[BARCODE UI] lot hit | barcode=%s lot=%s product=%s tracking=%s",
+                    self.barcode,
+                    lot.display_name,
+                    lot.product_id.display_name,
+                    lot.product_id.tracking,
+                )
+                # Always bind the scanned lot/product immediately to keep UI and logic in sync
+                self.product_id = lot.product_id
+                self.lot_id = lot
+                self.lot_name = lot.name
                 if self.option_group_id.fill_fields_from_lot:
                     quant_domain = [
                         ("lot_id.name", "=", self.barcode),
@@ -295,11 +328,9 @@ class WizStockBarcodesRead(models.AbstractModel):
                     if quants:
                         self.set_info_from_quants(quants)
                     else:
-                        self.product_id = lot.product_id
                         self.action_lot_scaned_post(lot)
                     return True
                 else:
-                    self.product_id = lot.product_id
                     self.action_lot_scaned_post(lot)
                 return True
             elif lot:
@@ -379,7 +410,11 @@ class WizStockBarcodesRead(models.AbstractModel):
             if self.option_group_id.code != "OUT" and not self.env.context.get(
                 "skip_update_quantity_from_lot", False
             ):
-                self.product_qty = quants.quantity
+                # For tracked products, always start with qty=1 per scan to avoid grouping different lots
+                if self.product_id.tracking in ("lot", "serial"):
+                    self.product_qty = 1.0
+                else:
+                    self.product_qty = quants.quantity
         elif len(quants) > 1:
             # More than one record found with same barcode.
             # Could be half lot in two distinct locations.
@@ -419,73 +454,53 @@ class WizStockBarcodesRead(models.AbstractModel):
         return False
 
     def process_barcode(self, barcode):
-        if not self:
-            barcode_action = self.env["stock.barcodes.action"].search(
-                [
-                    ("action_window_id", "!=", False),
-                    ("barcode", "=", barcode),
-                ],
-                limit=1,
-            )
+        """Product-first flow with context memory and simple lot/serial handling."""
+        self.barcode = self._clean_barcode_scanned(barcode)
+        self._log_debug_state("process_barcode_start")
+        if not self.barcode:
+            return False
 
-            self.env["bus.bus"]._sendone(
-                "stock_barcodes_scan",
-                "actions_main_menu_barcode",
-                {
-                    "action_ok": len(barcode_action) > 0,
-                    "action": barcode_action.open_action() if barcode_action else "",
-                    "barcode": barcode,
-                },
+        # 1) Try product first
+        if self.process_barcode_product_id():
+            # Product context set; auto-confirm for untracked, prompt lot/serial otherwise
+            if self.product_tracking in ("none", False):
+                self._log_debug_state("process_barcode_product_no_tracking")
+                self.set_product_qty()
+                res = self.action_confirm()
+                if res:
+                    self.last_scan_barcode = self.barcode
+                    self.last_scan_at = fields.Datetime.now()
+                return res
+            self._log_debug_state("process_barcode_product_tracking")
+            self._set_messagge_info("info", _("Scan lot/serial"))
+            return True
+
+        # 2) If no product context, any non-product barcode is invalid -> ask for product
+        if not self.product_id:
+            self._set_messagge_info("info", _("Scan product"))
+            return False
+
+        # 3) We have product context
+        tracking = self.product_tracking
+        if tracking in ("lot", "serial"):
+            if self.process_barcode_lot_id():
+                self._log_debug_state("process_barcode_lot")
+                res = self.action_confirm()
+                if res:
+                    self.last_scan_barcode = self.barcode
+                    self.last_scan_at = fields.Datetime.now()
+                return res
+            self._set_messagge_info(
+                "not_found", _("Invalid lot/serial for this product")
             )
-        else:
-            self._set_messagge_info("success", _("OK"))
-            options = self.option_group_id.option_ids
-            barcode_found = False
-            options_to_scan = options.filtered("to_scan")
-            options_required = options.filtered("required")
-            options_to_scan = options_to_scan.filtered(lambda op: op.step == self.step)
-            for option in options_to_scan:
-                if (
-                    self.option_group_id.ignore_filled_fields
-                    and option in options_required
-                    and getattr(self, option.field_name, False)
-                ):
-                    continue
-                option_func = getattr(
-                    self, f"process_barcode_{option.field_name}", False
-                )
-                if option_func:
-                    res = option_func()
-                    if res:
-                        barcode_found = True
-                        self.play_sounds(barcode_found)
-                        break
-                    elif self.message_type != "success":
-                        self.play_sounds(False)
-                        return False
-            if not barcode_found:
-                self.play_sounds(barcode_found)
-                if self.option_group_id.ignore_filled_fields:
-                    self._set_messagge_info(
-                        "not_found", _("Barcode not found or field already filled")
-                    )
-                else:
-                    self._set_messagge_info(
-                        "not_found", _("Barcode not found with this screen values")
-                    )
-                self.display_notification(
-                    self.barcode,
-                    message_type="danger",
-                    title=_("Barcode not found"),
-                    sticky=False,
-                )
-                return False
-            if not self.check_option_required():
-                return False
-            if self.is_manual_confirm or self.manual_entry:
-                self._set_messagge_info("info", _("Review and confirm"))
-                return False
-            return self.action_confirm()
+            self.play_sounds(False)
+            return False
+
+        # 4) Untracked product context: only product scans are valid
+        self._set_messagge_info("info", _("Scan product"))
+        self.play_sounds(False)
+        self._log_debug_state("process_barcode_not_found")
+        return False
 
     def check_option_required(self):
         options = self.option_group_id.option_ids
@@ -535,17 +550,95 @@ class WizStockBarcodesRead(models.AbstractModel):
     def _clean_barcode_scanned(self, barcode):
         return barcode.rstrip()
 
+    def _log_debug_state(self, label, extra=None):
+        """Emit detailed scan state to help diagnose UI refresh issues."""
+        payload = {
+            "label": label,
+            "barcode": self.barcode,
+            "product_id": self.product_id.id if self.product_id else False,
+            "product": self.product_id.display_name if self.product_id else False,
+            "tracking": self.product_id.tracking
+            if self.product_id
+            else self.product_tracking,
+            "lot_id": self.lot_id.id if self.lot_id else False,
+            "lot_name": self.lot_name,
+            "instruction_text": getattr(self, "instruction_text", False),
+            "instruction_override": getattr(self, "instruction_override", False),
+            "qty": self.product_qty,
+            "packaging_qty": self.packaging_qty,
+            "location_id": self.location_id.id if self.location_id else False,
+            "location_dest_id": self.location_dest_id.id
+            if self.location_dest_id
+            else False,
+            "manual_entry": self.manual_entry,
+        }
+        if extra:
+            payload.update(extra)
+        _logger.debug("[BARCODE UI][DEBUG] %s | %s", label, payload)
+
+    def _is_recent_duplicate_scan(self, barcode, threshold_ms=600):
+        """Return True when the same barcode was just processed moments ago."""
+        if not barcode:
+            return False
+        if barcode != self.last_scan_barcode:
+            return False
+        if not self.last_scan_at:
+            return False
+        delta = fields.Datetime.now() - self.last_scan_at
+        return delta <= timedelta(milliseconds=threshold_ms)
+
     def on_barcode_scanned(self, barcode):
         self.barcode = self._clean_barcode_scanned(barcode)
-
-    def dummy_on_barcode_scanned(self):
-        """To avoid execute operations in onchange environment"""
+        if self._is_recent_duplicate_scan(self.barcode):
+            _logger.info(
+                "[BARCODE UI] duplicate scan suppressed (onchange) | barcode=%s",
+                self.barcode,
+            )
+            return self._prepare_onchange_result()
+        _logger.info("[BARCODE UI] on_barcode_scanned | barcode=%s", self.barcode)
+        self._log_debug_state("before_process")
+        # Process immediately so the UI reacts to scans dispatched by barcode_handler
         self.process_barcode(self.barcode)
+        self._barcode_scanned = False
+        self._log_debug_state("after_process")
+        return self._prepare_onchange_result()
+
+    def dummy_on_barcode_scanned(self, barcode=None):
+        """To avoid execute operations in onchange environment"""
+        cleaned_barcode = (
+            self._clean_barcode_scanned(barcode) if barcode else self.barcode
+        )
+        if self._is_recent_duplicate_scan(cleaned_barcode):
+            _logger.info(
+                "[BARCODE UI] duplicate scan suppressed (dummy) | barcode=%s",
+                cleaned_barcode,
+            )
+            return self._prepare_onchange_result()
+        if cleaned_barcode:
+            self.barcode = cleaned_barcode
+        _logger.info("[BARCODE UI] dummy_on_barcode_scanned | barcode=%s", self.barcode)
+        self._log_debug_state("dummy_before_process")
+        self.process_barcode(self.barcode)
+        self._barcode_scanned = False
+        self._log_debug_state("dummy_after_process")
+        return self._prepare_onchange_result()
+
+    def _prepare_onchange_result(self):
+        """Return onchange-like payload so the form updates after scans."""
+        self.ensure_one()
+        values = self.read()[0]
+        values.pop("__last_update", None)
+        self._log_debug_state("onchange_payload", {"payload_keys": list(values.keys())})
+        return {"value": values}
 
     def check_location_contidion(self):
         if not self.location_id:
             self._set_messagge_info("info", _("Waiting location"))
             # Remove product when no location has been scanned
+            _logger.info(
+                "[BARCODE UI] clearing product due to missing location | product_id=%s",
+                self.product_id.id if self.product_id else None,
+            )
             self.product_id = False
             return False
         return True
@@ -611,20 +704,16 @@ class WizStockBarcodesRead(models.AbstractModel):
         return True
 
     def action_done(self):
-        if not self.manual_entry and not self.product_qty and not self.is_manual_qty:
+        if not self.product_id:
+            self._set_messagge_info("info", _("Scan product"))
+            return False
+        if self.product_tracking not in ("none", False) and not (
+            self.lot_id or self.lot_name
+        ):
+            self._set_messagge_info("info", _("Scan lot/serial"))
+            return False
+        if not self.product_qty:
             self.product_qty = 1.0
-        limit_product_qty = float(
-            self.env["ir.config_parameter"]
-            .sudo()
-            .get_param("stock_barcodes.limit_product_qty", "999999")
-        )
-        if self.product_qty > limit_product_qty:
-            # HACK: Some times users scan a barcode into input element.
-            # At this time, to prevent this we check that the quantity be realistic.
-            self._set_messagge_info("more_match", _("The quantity is huge"))
-            return False
-        if not self.check_done_conditions():
-            return False
         self.process_lot_before_done()
         return True
 
@@ -637,6 +726,10 @@ class WizStockBarcodesRead(models.AbstractModel):
             self.lot_id = False
         self.product_id = product
         self.product_uom_id = self.product_id.uom_id
+        _logger.info(
+            "[BARCODE UI] action_product_scaned_post | product_id=%s",
+            self.product_id.id if self.product_id else None,
+        )
         self.set_product_qty()
 
     def action_packaging_scaned_post(self, packaging):
@@ -657,6 +750,7 @@ class WizStockBarcodesRead(models.AbstractModel):
         self.set_product_qty()
 
     def set_product_qty(self):
+        prev_qty = self.product_qty
         if (
             self.manual_entry
             or self.is_manual_qty
@@ -666,17 +760,56 @@ class WizStockBarcodesRead(models.AbstractModel):
         elif self.packaging_id:
             self.packaging_qty = 1.0
             self.product_qty = self.packaging_id.qty * self.packaging_qty
+            self.last_product_id = self.product_id
+            self.last_lot_identifier = False
         else:
             self.packaging_qty = 0.0
-            self.product_qty = 1.0
+            current_lot_identifier = self.lot_id.id or self.lot_name
+            if (
+                self.product_id
+                and self.product_id.tracking in ("lot", "serial")
+                and current_lot_identifier
+            ):
+                same_product = self.last_product_id == self.product_id
+                same_lot = self.last_lot_identifier == str(current_lot_identifier)
+                if same_product and same_lot:
+                    self.product_qty = (self.product_qty or 0.0) + 1.0
+                else:
+                    self.product_qty = 1.0
+                self.last_product_id = self.product_id
+                self.last_lot_identifier = str(current_lot_identifier)
+            else:
+                self.product_qty = 1.0
+                self.last_product_id = self.product_id
+                self.last_lot_identifier = False
+        _logger.info(
+            "[BARCODE UI] set_product_qty | product=%s tracking=%s lot_id=%s lot_name=%s prev_qty=%s new_qty=%s last_product_id=%s last_lot=%s manual=%s packaging=%s",
+            self.product_id.display_name if self.product_id else None,
+            self.product_id.tracking if self.product_id else None,
+            self.lot_id.id if self.lot_id else None,
+            self.lot_name,
+            prev_qty,
+            self.product_qty,
+            self.last_product_id.id if self.last_product_id else None,
+            self.last_lot_identifier,
+            self.manual_entry,
+            self.packaging_id.id if self.packaging_id else None,
+        )
 
     def action_clean_lot(self):
         self.lot_id = False
         self.lot_name = False
+        self.last_lot_identifier = False
         self.action_show_step()
 
     def action_clean_product(self):
+        _logger.info(
+            "[BARCODE UI] action_clean_product | product_id=%s",
+            self.product_id.id if self.product_id else None,
+        )
         self.product_id = False
+        self.last_product_id = False
+        self.last_lot_identifier = False
         self.action_show_step()
 
     def action_clean_package(self):
@@ -687,7 +820,7 @@ class WizStockBarcodesRead(models.AbstractModel):
     def action_create_package(self):
         self.result_package_id = self.env["stock.quant.package"].create({})
 
-    def action_clean_values(self):
+    def action_change_location_filter(self):
         options = self.option_group_id.option_ids
         options_to_clean = options.filtered(
             lambda op: op.clean_after_done and op.field_name in self
@@ -696,11 +829,22 @@ class WizStockBarcodesRead(models.AbstractModel):
             if option.field_name == "result_package_id" and self.keep_result_package:
                 continue
             if option.field_name:
+                if option.field_name == "product_id" and getattr(
+                    self, option.field_name, False
+                ):
+                    _logger.info(
+                        "[BARCODE UI] action_change_location_filter clearing product_id=%s",
+                        self.product_id.id,
+                    )
                 setattr(self, option.field_name, False)
         self.action_show_step()
         self.product_qty = 0.0
         self.packaging_qty = 0.0
         self.lot_name = False
+
+    # Backward compatibility shim; prefer action_change_location_filter
+    def action_clean_values(self):
+        return self.action_change_location_filter()
 
     def action_manual_entry(self):
         return True
@@ -779,52 +923,14 @@ class WizStockBarcodesRead(models.AbstractModel):
             self.process_barcode_package_id()
 
     def action_confirm(self):
-        if not self.check_option_required():
-            self.play_sounds(False)
-            return False
         record = self.browse(self.ids)
         record.write(self._convert_to_write(self._cache))
         self = record
-        no_increase_qty_done, force_create_move = False, False
-        context = dict(self.env.context)
-        if self._name == "wiz.stock.barcodes.read.picking":
-            no_increase_qty_done = (
-                context.get("no_increase_qty_done", False)
-                or self.option_group_id.no_increase_qty_done
-            )
-            force_create_move = context.get("force_create_move", False)
-        res = self.with_context(
-            no_increase_qty_done=no_increase_qty_done,
-            force_create_move=force_create_move,
-        ).action_done()
+        if not self.product_qty:
+            self.product_qty = 1.0
+        res = self.action_done()
         self.invalidate_recordset()
         self.play_sounds(res)
-        self._set_focus_on_qty_input()
-
-        if force_create_move:
-            # Hide Form Edit
-            self.manual_entry = False
-            self.send_bus_done(
-                "stock_barcodes_scan",
-                {
-                    "type": "stock_barcodes_edit_manual",
-                    "payload": {
-                        "manual_entry": False,
-                    },
-                },
-            )
-
-            # Count elements for apply in inventory
-            if self._name == "wiz.stock.barcodes.read.inventory":
-                self.display_read_quant = True
-                self._compute_count_inventory_quants()
-                self.send_bus_done(
-                    "stock_barcodes_form_update",
-                    {
-                        "type": "count_apply_inventory",
-                        "payload": {"count": self.count_inventory_quants},
-                    },
-                )
         return res
 
     def action_add_scan_manual(self):

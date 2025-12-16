@@ -113,10 +113,23 @@ function setupView() {
 
     const handleNotification = (notif) => {
         const {payload, type} = notif;
+        const resModel = this.model?.root?.resModel;
+        const resId = this.model?.root?.resId;
+
         if (
-            (this.model.root.resModel == payload.res_model) &
-            (this.model.root.resId == payload.res_id)
+            type === "barcode_qty_change" ||
+            type === "barcode_move_line_unlink"
         ) {
+            if (
+                resModel === "wiz.stock.barcodes.read.picking" &&
+                resId === payload?.wiz_id
+            ) {
+                this.reload();
+            }
+            return;
+        }
+
+        if ((resModel == payload.res_model) & (resId == payload.res_id)) {
             if (type === "stock_barcodes_sound") {
                 if (payload?.sound === "ko") {
                     safePlay(this.soundKo);
@@ -207,6 +220,7 @@ function setupView() {
             this.soundKo = null;
         };
     });
+
 }
 
 function patchControllerSetup(Controller) {
@@ -215,8 +229,8 @@ function patchControllerSetup(Controller) {
             super.setup(...arguments);
             // Guard por si props aún no están listas
             const resModel = this?.props?.resModel;
-            if (resModel && isAllowedBarcodeModel(resModel)) {
-                // Ejecuta tu wiring (useEffect, bus, etc.)
+            if (!resModel || isAllowedBarcodeModel(resModel)) {
+                // Ejecuta wiring (hotkeys, sounds, focus, etc.)
                 setupView.call(this);
             }
         },

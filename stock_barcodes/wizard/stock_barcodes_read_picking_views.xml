@@ -1,309 +1,322 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <odoo>
+    <record id="view_move_line_minimal_tree" model="ir.ui.view">
+        <field name="name">stock.move.line.tree.minimal.barcode</field>
+        <field name="model">stock.move.line</field>
+        <field name="arch" type="xml">
+            <list string="Detailed Operations" create="0" edit="0" delete="0">
+                <field name="product_id" string="Product" />
+                <field name="lot_id" string="Lot/Serial" options="{'no_open': True}" />
+                <field name="lot_name" string="Lot/Serial" invisible="lot_id" />
+                <field name="quantity" string="Qty" />
+            </list>
+        </field>
+    </record>
+
+    <record id="view_move_line_minimal_kanban" model="ir.ui.view">
+        <field name="name">stock.move.line.kanban.minimal.barcode</field>
+        <field name="model">stock.move.line</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile">
+                <field name="product_id" />
+                <field name="product_tracking" invisible="1" />
+                <field name="product_type" invisible="1" />
+                <field name="lot_id" />
+                <field name="lot_name" />
+                <field name="quantity" />
+                <templates>
+                    <t t-name="kanban-box">
+                        <div
+                            class="oe_kanban_content p-2 d-flex align-items-start o_barcode_noopen"
+                        >
+                            <div class="flex-grow-1">
+                                <div class="fw-bold">
+                                    <field name="product_id" />
+                                </div>
+                                <t t-if="record.lot_id or record.lot_name">
+                                    <div class="text-muted small">
+                                        <t
+                                            t-esc="record.lot_id.value or record.lot_name.value"
+                                        />
+                                    </div>
+                                </t>
+                                <div class="mt-1">
+                                    <span class="fw-bold">
+                                        <t t-esc="record.quantity.value" />
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="ms-2 d-flex gap-1 align-items-start">
+                                <button
+                                    name="action_barcode_decrement_line"
+                                    type="object"
+                                    class="barcode-btn barcode-btn-light"
+                                    title="Remove qty"
+                                >
+                                    <i class="fa fa-minus" />
+                                </button>
+                                <button
+                                    name="action_barcode_increment_line"
+                                    type="object"
+                                    class="barcode-btn barcode-btn-light"
+                                    title="Add qty"
+                                >
+                                    <i class="fa fa-plus" />
+                                </button>
+                                <button
+                                    name="action_barcode_change_lot"
+                                    type="object"
+                                    class="barcode-btn barcode-btn-light"
+                                    t-att-title="'Change lot/serial'"
+                                    t-if="record.product_tracking.raw_value == 'lot' or record.product_tracking.raw_value == 'serial'"
+                                >
+                                    <i class="fa fa-tags" />
+                                </button>
+                                <button
+                                    name="action_barcode_detailed_operation_unlink"
+                                    type="object"
+                                    class="barcode-btn barcode-btn-light"
+                                    title="Remove line"
+                                >
+                                    <i class="fa fa-trash" />
+                                </button>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
     <record id="view_stock_barcodes_read_picking_form" model="ir.ui.view">
         <field name="name">stock.barcodes.read.picking.form</field>
         <field name="model">wiz.stock.barcodes.read.picking</field>
-        <field name="inherit_id" ref="stock_barcodes.view_stock_barcodes_read_form" />
-        <field name="mode">primary</field>
+        <field name="inherit_id" eval="False" />
         <field name="arch" type="xml">
-            <xpath expr="//button[@name='open_actions']" position="after">
-                <button
-                    name="action_open_picking"
-                    type="object"
-                    class="btn btn-primary"
-                    data-hotkey="'shift+o'"
-                >
-                    <field name="picking_id" />
-                </button>
-                <field name="partner_id" invisible="1" />
-                <span class="text-white fs-6 mt-3 w-15" invisible="partner_id == False">
-                    <field
-                        class="w-100"
-                        name="partner_name"
-                        invisible="context.get('hide_partner', False)"
-                    />
-                </span>
-            </xpath>
-            <xpath expr="//field[@name='message_type']" position="before">
-                <field
-                    name="todo_line_display_ids"
-                    mode="kanban"
-                    force_save="1"
-                    invisible="todo_line_display_ids == False"
-                />
-            </xpath>
-            <field name="location_id" position="before">
-                <field name="picking_type_code" invisible="1" force_save="1" />
-                <field name="picking_id" invisible="1" force_save="1" />
-                <field name="show_detailed_operations" invisible="1" />
-                <field name="picking_location_id" invisible="1" />
-                <field name="picking_location_dest_id" invisible="1" />
-                <field name="company_id" invisible="1" />
-                <field name="todo_line_is_extra_line" invisible="1" />
-                <field name="qty_available" invisible="1" />
-            </field>
-            <field name="location_id" position="attributes">
-                <attribute
-                    name="domain"
-                >[('id', 'child_of', picking_location_id), '|', ('company_id', '=', False), ('company_id', '=',
-                                                                                             company_id),
-                  ('usage', '!=', 'view')]
-                </attribute>
-            </field>
-            <group name="location" position="attributes">
-                <attribute name="readonly" add="(not manual_entry)" separator=" or " />
-                <attribute name="invisible">picking_type_code == 'incoming'</attribute>
-            </group>
-            <group name="location" position="after">
-                <div>
-                    <strong class=" d-none d-sm-block">Dest. Location</strong>
-                    <span
-                        class="fa fa-2x fa-share text-center d-sm-none oe_span_small_icon"
-                        title="Destination Location"
-                    />
-                    <field
-                        name="location_dest_id"
-                        options="{'no_create': True, 'no_open': True}"
-                        readonly="not manual_entry"
-                        force_save="1"
-                        nolabel="1"
-                        style="width:90%"
-                        class="h5"
-                        domain="[('id', 'child_of', picking_location_dest_id), '|', ('company_id', '=', False), ('company_id', '=', company_id), ('usage', '!=', 'view')]"
-                    />
-                </div>
-            </group>
-            <group name="scan_fields" position="attributes">
-                <!--  hide group scan_fields for extra todo lines -->
-                <attribute name="invisible">todo_line_is_extra_line != False</attribute>
-            </group>
-            <group name="scan_fields" position="after">
-                <div
-                    invisible="picking_state != 'done'"
-                    class="oe_kanban_picking_done bg-dark d-flex flex-column justify-content-center align-items-center text-white"
-                >
-                    <span class="fa fa-6x mb-4 fa-exclamation-triangle" />
-                    <span class="fa fa-2x fa-exclamation-triangle">
-                        This picking is already done
-                    </span>
-                </div>
-                <group
-                    string="Pending moves"
-                    invisible="picking_state == 'done' or pending_move_ids == False"
-                    col="2"
-                >
-                    <field
-                        name="pending_move_ids"
-                        options="{'no_open': True, 'always_reload': True}"
-                        nolabel="1"
-                        colspan="2"
-                        force_save="1"
-                        mode="kanban"
-                    >
-                        <kanban class="o_kanban_mobile">
-                            <field name="id" />
-                            <field name="state" />
-                            <field name="product_id" />
-                            <field name="product_uom_qty" />
-                            <field name="qty_done" />
-                            <field name="qty_done_rest" />
-                            <field name="uom_id" />
-                            <field name="product_qty_reserved" />
-                            <field name="picking_state" />
-                            <templates>
-                                <t t-name="kanban-box">
-                                    <div class="oe_kanban_global_click">
-                                        <div class="row">
-                                            <div class="col-8 col-md-8">
-                                                <field name="product_id" class="h2" />
-                                                <div
-                                                    class="d-flex justify-content-start align-items-center indent h4 pt-3"
-                                                >
-                                                    <field name="qty_done" />
-                                                    &#32;/&#32;
-                                                    <field name="product_uom_qty" />
-                                                    <span
-                                                    t-if="record.uom_id"
-                                                    t-esc="record.uom_id.value"
-                                                />
-                                                </div>
-                                            </div>
-                                            <div
-                                                class="col-4 col-md-4 d-flex justify-content-end align-items-center"
-                                            >
-                                                <button
-                                                    name="action_barcode_inventory_quant_edit"
-                                                    type="object"
-                                                    class="btn btn-op-big btn-outline-secondary mt0 me-2"
-                                                    context="{'wiz_barcode_id': parent.id}"
-                                                >
-                                                    <i
-                                                        class="fa fa-pencil"
-                                                        title="Edit inventory quantity"
-                                                    />
-                                                </button>
-                                                <button
-                                                    name="operation_quantities"
-                                                    type="object"
-                                                    class="btn btn-lg btn-primary btn-op-big"
-                                                    t-if="record.qty_done_rest.raw_value > 0"
-                                                >
-                                                    +
-                                                    <span
-                                                    class="text-white"
-                                                    t-esc="record.qty_done_rest.raw_value"
-                                                />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </t>
-                            </templates>
-                        </kanban>
-                    </field>
-                </group>
-                <group
-                    string="Detailed operations"
-                    col="2"
-                    invisible="move_line_ids == False or not show_detailed_operations"
-                >
-                    <h3
-                        class="mt-4 w-100 px-4"
-                        invisible="move_line_ids == False or not show_detailed_operations"
-                    >
-                        Detailed operations
-                    </h3>
-                    <field
-                        name="move_line_ids"
-                        options="{'no_open': True, 'always_reload': True}"
-                        nolabel="1"
-                        colspan="2"
-                        force_save="1"
-                        mode="kanban"
-                    >
-                        <kanban class="o_kanban_mobile">
-                            <field name="product_id" />
-                            <field name="qty_picked" />
-                            <field name="quantity" />
-                            <field name="product_uom_id" />
-                            <field name="lot_id" />
-                            <field name="result_package_id" />
-                            <templates>
-                                <t t-name="kanban-box">
-                                    <div class="oe_kanban_global_click">
-                                        <div class="row">
-                                            <div class="col-8 col-md-8">
-                                                <field name="product_id" class="h2" />
-                                                <div
-                                                    class="d-flex justify-content-start align-items-center indent h4 pt-3"
-                                                >
-                                                    <t t-if="record.lot_id.raw_value">
-                                                        Lot: <field name="lot_id" />
-                                                    </t>
-                                                    <t
-                                                        t-if="record.result_package_id.raw_value"
-                                                    >
-                                                        Package: <field
-                                                        name="result_package_id"
-                                                    />
-                                                    </t>
-                                                </div>
-                                            </div>
-                                            <div
-                                                class="col-4 col-md-4 d-flex justify-content-end align-items-center"
-                                            >
-                                                <field
-                                                    class="h3 me-2"
-                                                    name="qty_picked"
-                                                />
-                                                <button
-                                                    name="action_barcode_detailed_operation_unlink"
-                                                    type="object"
-                                                    class="btn btn-op-big btn-outline-secondary mt0"
-                                                    context="{'wiz_barcode_id': parent.id}"
-                                                >
-                                                    <i
-                                                        class="fa fa-trash"
-                                                        title="Remove"
-                                                    />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </t>
-                            </templates>
-                        </kanban>
-                    </field>
-                </group>
-            </group>
-            <xpath expr="//button[@id='btn_create_lot']" position="after">
-                <field name="display_assign_serial" invisible="1" />
-                <button
-                    name="action_assign_serial"
-                    type="object"
-                    string="Range"
-                    title="Assign Serial Numbers"
-                    invisible="not display_assign_serial"
-                    class="btn btn-secondary btn-sm"
-                />
-            </xpath>
-            <xpath expr="//button[@name='action_clean_values']" position="before">
-                <field name="picking_state" invisible="1" />
-                <button
-                    name="action_put_in_pack"
-                    help="Put in pack"
-                    type="object"
-                    icon="fa-cube fa-2x"
-                    title="Put in Pack"
-                    invisible="picking_state in ('draft', 'done', 'cancel') or not display_menu"
-                    class="btn btn-secondary w-100 oe_kanban_action_button btn-sm text-uppercase
-                    d-flex justify-content-center align-items-center fs-2"
-                    groups="stock.group_tracking_lot"
-                    data-hotkey="6"
-                >
-                    <span class="d-none d-lg-block">Put in back</span>
-                </button>
-                <!--                t-att-class="'btn float-end' + (record.is_pending.raw_value == false ? ' btn-primary' : ' btn-secondary border')"-->
-                <button
-                    name="action_validate_picking"
-                    type="object"
-                    icon="fa-check"
-                    class="btn btn-secondary w-100 oe_kanban_action_button btn-sm text-uppercase
-                    d-flex justify-content-center align-items-center fs-2"
-                    invisible="picking_state not in ('draft', 'assigned', 'confirmed')"
-                    confirm="Are you sure to validate the picking ?"
-                    data-hotkey="'shift+v'"
-                >
-                    <span class="d-none d-lg-block">Validate</span>
-                </button>
-            </xpath>
-            <xpath
-                expr="//div[hasclass('oe_stock_barcodes_bottombar')]//div[hasclass('dropup')]"
-                position="inside"
+            <form
+                string="Scan"
+                class="o_stock_barcode_simple oe_stock_barcordes_form"
+                js_class="stock_barcodes_form"
             >
-                <field
-                    name="show_detailed_operations"
-                    widget="barcode_boolean_toggle"
-                    class="d-none"
-                />
-                <button
-                    name="action_show_detailed_operations"
-                    type="object"
-                    title="Detailed operations"
-                    icon="fa-eye"
-                    invisible="move_line_ids == False or show_detailed_operations"
-                    class="fs-2"
-                />
+                <field name="_barcode_scanned" widget="barcode_handler" invisible="0" />
+                <field name="barcode" invisible="1" />
+                <field name="picking_id" invisible="1" />
+                <field name="picking_type_code" invisible="1" />
+                <field name="product_tracking" invisible="1" />
+                <field name="show_source_location" invisible="1" />
+                <field name="show_destination_location" invisible="1" />
+                <field name="show_todo_list" invisible="1" />
+                <field name="show_partner_card" invisible="1" />
+                <field name="partner_id" invisible="1" />
+                <div class="p-3 d-flex flex-column gap-3">
+                    <div
+                        class="navbar bg-light shadow-sm rounded px-3 py-2 mb-1 align-items-center"
+                    >
+                        <button
+                            type="object"
+                            name="open_actions"
+                            class="barcode-btn me-3"
+                            title="Back to menu"
+                        >
+                            <i class="fa fa-chevron-left" />
+                        </button>
+                        <field
+                            name="picking_id"
+                            nolabel="1"
+                            readonly="1"
+                            class="h5 mb-0 flex-grow-1"
+                        />
+                        <a
+                            href="#"
+                            class="barcode-btn barcode-btn-light o_stock_barcodes_camera_btn ms-2"
+                            role="button"
+                            title="Scan with camera"
+                            aria-label="Scan with camera"
+                        >
+                            <i class="fa fa-camera" />
+                        </a>
+                        <button
+                            type="object"
+                            name="action_cycle_multiplier"
+                            class="barcode-btn ms-2"
+                            title="Cycle multiplier"
+                        >
+                            <field name="multiplier_factor" readonly="1" class="mb-0"/>
+                        </button>
+                    </div>
 
-                <button
-                    name="action_show_detailed_operations"
-                    type="object"
-                    title="Detailed operations"
-                    icon="fa-eye-slash"
-                    invisible="move_line_ids == False or not show_detailed_operations"
-                    class="fs-2"
-                />
-            </xpath>
+                    <div class="card shadow-sm" invisible="not show_partner_card">
+                        <div class="card-body py-2">
+                            <div class="text-muted text-uppercase small mb-1">Partner</div>
+                            <field
+                                name="partner_id"
+                                readonly="1"
+                                nolabel="1"
+                                class="h6 mb-0"
+                                options="{'no_open': True, 'no_create': True}"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="card shadow-none">
+                        <div class="card-body py-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div class="text-muted text-uppercase small">Locations</div>
+                                <div class="d-flex gap-2">
+                                    <button
+                                        name="action_open_source_location_picker"
+                                        type="object"
+                                        class="barcode-btn barcode-btn-light"
+                                        title="Change source location"
+                                        invisible="not show_source_location"
+                                    >
+                                        <i class="fa fa-map-marker"/>
+                                    </button>
+                                    <button
+                                        name="action_open_destination_location_picker"
+                                        type="object"
+                                        class="barcode-btn barcode-btn-light"
+                                        title="Change destination location"
+                                        invisible="not show_destination_location"
+                                    >
+                                        <i class="fa fa-flag-checkered"/>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="d-flex flex-column flex-md-row gap-2">
+                                <div class="flex-fill" invisible="not show_source_location">
+                                    <div class="small text-muted">Source</div>
+                                    <field
+                                            name="location_id"
+                                            options="{'no_create': True, 'no_open': True}"
+                                            readonly="1"
+                                            nolabel="1"
+                                            class="mb-0 small fw-semibold"
+                                            invisible="not show_source_location"
+                                        />
+                                </div>
+                                <div class="flex-fill" invisible="not show_destination_location">
+                                    <div class="small text-muted">Destination</div>
+                                    <field
+                                            name="location_dest_id"
+                                            options="{'no_create': True, 'no_open': True}"
+                                            readonly="1"
+                                            nolabel="1"
+                                            class="mb-0 small fw-semibold"
+                                            invisible="not show_destination_location"
+                                        />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-body py-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div class="text-muted text-uppercase small">Instructions</div>
+                                <button
+                                    name="action_clear_context"
+                                    type="object"
+                                    class="barcode-btn barcode-btn-light"
+                                    title="Clear product/lot context"
+                                >
+                                    <i class="fa fa-undo"/>
+                                </button>
+                            </div>
+                            <field name="instruction_text" readonly="1" nolabel="1" class="h6 mb-0"/>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <div class="h6 m-0">To Do</div>
+                        <button
+                            name="action_toggle_todo_list"
+                            type="object"
+                            class="btn barcode-btn btn-secondary barcode-btn-light btn-square-rounded"
+                            title="Toggle to do"
+                        >
+                            <i class="fa fa-chevron-down" invisible="show_todo_list"/>
+                            <i class="fa fa-chevron-up" invisible="not show_todo_list"/>
+                        </button>
+                    </div>
+                    <group invisible="not show_todo_list">
+                        <field
+                            name="todo_line_ids"
+                            readonly="1"
+                            nolabel="1"
+                            options="{'no_open': True}"
+                            views="[(list, 'stock_barcodes.view_stock_barcodes_todo_tree'), (kanban, 'stock_barcodes.view_stock_barcodes_todo_kanban')]"
+                        />
+                    </group>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="h6 m-0">Detailed Moves</div>
+                        <button
+                            name="action_show_detailed_operations"
+                            type="object"
+                            class="btn barcode-btn btn-secondary barcode-btn-light btn-square-rounded"
+                            invisible="not move_line_ids"
+                            title="Toggle details"
+                        >
+                            <i class="fa fa-chevron-down" invisible="show_detailed_operations"/>
+                            <i class="fa fa-chevron-up" invisible="not show_detailed_operations"/>
+                        </button>
+                    </div>
+
+                    <group invisible="not show_detailed_operations">
+                        <field
+                            name="move_line_ids"
+                            readonly="1"
+                            nolabel="1"
+                            options="{'no_open': True}"
+                            mode="kanban,list"
+                            views="[(list, 'stock_barcodes.view_move_line_minimal_tree'), (kanban, 'stock_barcodes.view_move_line_minimal_kanban')]"
+                            context="{
+                                'kanban_view_ref': 'stock_barcodes.view_move_line_minimal_kanban',
+                                'list_view_ref': 'stock_barcodes.view_move_line_minimal_tree',
+                                'tree_view_ref': 'stock_barcodes.view_move_line_minimal_tree',
+                                'wiz_barcode_id': id
+                            }"
+                        />
+                    </group>
+
+                    <button
+                        name="dummy_on_barcode_scanned"
+                        type="object"
+                        class="d-none"
+                    />
+
+                    <button
+                        name="action_validate_picking"
+                        type="object"
+                        class="btn btn-primary btn-lg w-100 mt-2 py-3"
+                        invisible="picking_state not in ('draft', 'assigned', 'confirmed')"
+                        title="Validate"
+                    >
+                        Validate
+                    </button>
+
+                    <div class="card shadow-sm mt-2">
+                        <div class="card-body">
+                            <div class="text-muted text-uppercase small mb-2">Post a message</div>
+                            <field name="chatter_message" placeholder="Add a note to the chatter" nolabel="1"/>
+                            <field
+                                name="attachment_ids"
+                                widget="many2many_binary"
+                                class="mt-2"
+                                context="{'default_res_model': 'stock.picking', 'default_res_id': picking_id}"
+                                options="{'no_open': True}"
+                            />
+                            <button
+                                name="action_post_chatter_message"
+                                type="object"
+                                class="btn btn-secondary w-100 mt-2"
+                                string="Post"
+                                title="Post to chatter"
+                                modifiers="{'readonly': [('chatter_message','=', False)]}"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </form>
         </field>
     </record>
     <!--

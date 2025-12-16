@@ -15,6 +15,7 @@
 
 import {FormController} from "@web/views/form/form_controller";
 import {_t} from "@web/core/l10n/translation";
+import {scanBarcode} from "@web/core/barcode/barcode_dialog";
 import {useService} from "@web/core/utils/hooks";
 import {useEffect} from "@odoo/owl";
 
@@ -27,6 +28,7 @@ export class StockBarcodesFormController extends FormController {
         this.notification = useService("notification");
         this.action = useService("action");
         this.ui = useService("ui");
+        this.ormService = useService("orm");
 
         // Barcode service is optional (exists if stock_barcode or similar is loaded).
         // Keep it guarded so the controller works even without that module.
@@ -40,6 +42,7 @@ export class StockBarcodesFormController extends FormController {
 
         // Track stop handler for cleanup if barcode service is in use
         this._stopBarcode = null;
+        this._scanSeq = 0;
 
         // Defensive cleanup on page/tab visibility or component teardown
         useEffect(
@@ -62,6 +65,25 @@ export class StockBarcodesFormController extends FormController {
             },
             () => []
         );
+
+        // Bind the optional camera scan button injected in the wizard view (delegated for robustness)
+        useEffect(() => {
+            const handler = (ev) => {
+                const target = ev.target instanceof HTMLElement ? ev.target : null;
+                if (!target) {
+                    return;
+                }
+                const btn = target.closest(".o_stock_barcodes_camera_btn");
+                if (!btn) {
+                    return;
+                }
+                ev.preventDefault();
+                ev.stopPropagation();
+                this.openBarcodeScanner();
+            };
+            document.addEventListener("click", handler, true);
+            return () => document.removeEventListener("click", handler, true);
+        });
     }
 
     /**
@@ -96,7 +118,14 @@ export class StockBarcodesFormController extends FormController {
             return;
         }
 
-        // Fallback: no service available
+        // Fallback: open the camera dialog-based scanner (Odoo web client)
+        const scanned = await this._openCameraDialog();
+        if (scanned) {
+            await this.onBarcodeScanned(scanned);
+            return;
+        }
+
+        // If nothing handled the request, inform the user
         this._notifyWarn(
             _t(
                 "No barcode service available. Install/enable stock_barcode or use a hardware wedge scanner."
@@ -109,19 +138,41 @@ export class StockBarcodesFormController extends FormController {
      * Default behavior is to emit an event that others can subscribe to.
      * Override this to implement custom search/write/open flows.
      */
-    onBarcodeScanned(code) {
-        // Emit an application-level event so renderer or parent components can handle it.
-        // Consumers can listen to: env.bus.on("stock_barcodes:scan", (evt) => {...})
+    async onBarcodeScanned(code) {
+        const normalizedCode = this._normalizeBarcodePayload(code);
+        if (!normalizedCode) {
+            this._notifyWarn(_t("Empty barcode."));
+            return;
+        }
+
+        const seq = ++this._scanSeq;
+        const resModel = this.props?.resModel || null;
+        const resId = this.props?.resId || null;
+        console.log(
+            "[BARCODE SCAN][FORM CTRL] onBarcodeScanned entry seq=%s | code=%s | resModel=%s | resId=%s | ctx=%o",
+            seq,
+            normalizedCode,
+            resModel,
+            resId,
+            this.props?.context || {}
+        );
+
+        // If we are on a barcode wizard, process immediately via RPC to keep UX tight
+        if (resModel && resId && resModel.startsWith("wiz.stock.barcodes.read")) {
+            return await this._processWizardBarcode(normalizedCode, resModel, resId, seq);
+        }
+
+        // Fallback: emit an application-level event so renderers/parents can react
         const payload = {
-            code,
-            model: this.props?.resModel || null,
-            resId: this.props?.resId || null,
+            code: normalizedCode,
+            model: resModel,
+            resId,
             viewType: "form",
         };
         this.env.bus.trigger("stock_barcodes:scan", payload);
 
         // Optional UX hint
-        this._notifySuccess(_t("Scanned: %s").replace("%s", code));
+        this._notifySuccess(_t("Scanned: %s").replace("%s", normalizedCode));
     }
 
     /**
@@ -158,6 +209,80 @@ export class StockBarcodesFormController extends FormController {
             }
         }
         this._stopBarcode = null;
+    }
+
+    _normalizeBarcodePayload(payload) {
+        if (typeof payload === "string") {
+            return payload.trim();
+        }
+        if (payload && typeof payload === "object" && payload.barcode) {
+            return String(payload.barcode).trim();
+        }
+        return "";
+    }
+
+    async _processWizardBarcode(code, resModel, resId, seq = null) {
+        try {
+            const ctx = Object.assign({}, this.props?.context || {}, {
+                barcode_processing: true,
+            });
+            console.log(
+                "[BARCODE SCAN][FORM CTRL] RPC start seq=%s | code=%s | resModel=%s | resId=%s | ctx=%o",
+                seq,
+                code,
+                resModel,
+                resId,
+                ctx
+            );
+            await this.ormService.call(resModel, "on_barcode_scanned", [[resId], code], {
+                context: ctx,
+            });
+
+            // Refresh current record to reflect server-side changes
+            if (this.model?.root?.load) {
+                await this.model.root.load();
+            }
+            if (this.model?.notify) {
+                this.model.notify();
+            }
+
+            this._notifySuccess(_t("Scanned: %s").replace("%s", code));
+            console.log(
+                "[BARCODE SCAN][FORM CTRL] RPC done seq=%s | code=%s",
+                seq,
+                code
+            );
+        } catch (err) {
+            const msg =
+                err?.message ||
+                err?.data?.message ||
+                err?.toString?.() ||
+                _t("Camera scan failed.");
+            this._notifyDanger(msg);
+            console.error(
+                "[BARCODE SCAN][FORM CTRL] RPC error seq=%s | code=%s",
+                seq,
+                code,
+                err
+            );
+            this._stopScannerIfAny();
+        }
+    }
+
+    async _openCameraDialog() {
+        try {
+            // Use Odoo's built-in camera dialog; works on mobile and desktop.
+            const barcode = await scanBarcode(this.env, "environment");
+            return barcode || "";
+        } catch (err) {
+            const msg =
+                err?.message ||
+                err?.data?.message ||
+                err?.toString?.() ||
+                _t("Camera scan failed.");
+            this._notifyDanger(msg);
+            return "";
+        }
     }
 
     _notifyInfo(message) {

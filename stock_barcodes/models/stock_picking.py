@@ -1,6 +1,7 @@
 # Copyright 2019 Sergio Teruel <sergio.teruel@tecnativa.com>
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
-from odoo import models
+from odoo import api, models
+from odoo.osv.expression import AND, OR
 
 
 class StockPicking(models.Model):
@@ -44,6 +45,34 @@ class StockPicking(models.Model):
         action["res_id"] = wiz.id
         return action
 
+    def _name_search(
+        self, name, args=None, operator="ilike", limit=100, name_get_uid=None
+    ):
+        """Allow barcode scans to find pickings by name, origin or products.
+
+        Scanners usually send the barcode value, so we match product barcode
+        exactly while keeping partial matches for picking names and product
+        names/internal references.
+        """
+
+        args = args or []
+        if not name:
+            return super()._name_search(name, args, operator, limit, name_get_uid)
+
+        search_domains = [
+            [("name", operator, name)],
+            [("origin", operator, name)],
+            [("move_ids.product_id.barcode", "=", name)],
+            [("move_ids.product_id.default_code", operator, name)],
+            [("move_ids.product_id.display_name", operator, name)],
+        ]
+
+        domain = AND([OR(search_domains), args]) if args else OR(search_domains)
+
+        return self._search(
+            domain, limit=limit, access_rights_uid=name_get_uid, order=self._order
+        )
+
     def set_quantity_from_picked(self):
         for sml in self.move_line_ids:
             sml.quantity = sml.qty_picked
@@ -77,3 +106,69 @@ class StockPicking(models.Model):
                 "stock_barcodes_scan", "actions_barcode", {"valid_picking": True}
             )
         return res
+
+    @api.model
+    def filter_by_barcode(self, barcode=None, *args, **kwargs):
+        """
+        Simplified v17-style domain builder for barcode scans (kanban/list).
+        Returns a domain to apply in the search bar.
+        """
+        try:
+            # Normalize barcode from kwargs, positional arg, or context for robustness
+            raw_barcode = kwargs.get("barcode") if kwargs else None
+            if not raw_barcode:
+                raw_barcode = barcode
+            if not raw_barcode and args:
+                raw_barcode = args[0]
+            if not raw_barcode:
+                raw_barcode = self.env.context.get("barcode")
+
+            barcode = (raw_barcode or "").strip()
+            if not barcode:
+                return {
+                    "domain": [("id", "=", False)],
+                    "type": "not_found",
+                    "message": "No barcode provided",
+                }
+
+            # 1) Exact picking name match
+            picking = self.search([("name", "=", barcode)], limit=1)
+            if picking:
+                return {
+                    "domain": [("name", "=", picking.name)],
+                    "type": "picking",
+                    "name": picking.name,
+                    "message": f"Showing picking: {picking.display_name}",
+                }
+
+            # 2) Product match by barcode or internal reference
+            product = self.env["product.product"].search(
+                ["|", ("barcode", "=", barcode), ("default_code", "=", barcode)],
+                limit=1,
+            )
+            if product:
+                domain = [
+                    "|",
+                    ("move_ids.product_id", "=", product.id),
+                    ("move_line_ids.product_id", "=", product.id),
+                ]
+                return {
+                    "domain": domain,
+                    "type": "product",
+                    "product_id": product.id,
+                    "product_name": product.display_name,
+                    "message": f"Filtered by product: {product.display_name}",
+                }
+
+            # 3) Not found
+            return {
+                "domain": [("id", "=", False)],
+                "type": "not_found",
+                "message": f"No picking or product found for barcode: {barcode}",
+            }
+        except Exception as exc:
+            return {
+                "domain": [("id", "=", False)],
+                "type": "not_found",
+                "message": f"Error processing barcode: {exc}",
+            }

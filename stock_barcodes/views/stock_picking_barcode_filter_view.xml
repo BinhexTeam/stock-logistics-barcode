@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!-- Add info banner to stock.picking list view -->
+    <record id="view_picking_internal_search_barcode_filter" model="ir.ui.view">
+        <field name="name">stock.picking.search.barcode.filter</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_internal_search" />
+        <field name="arch" type="xml">
+            <search position="inside">
+                <group string="Barcode Filter">
+                    <filter
+                        string="Scan barcode to filter pickings"
+                        name="barcode_filter_help"
+                        help="Scan a picking name or product barcode to filter the list"
+                    />
+                </group>
+            </search>
+        </field>
+    </record>
+</odoo>

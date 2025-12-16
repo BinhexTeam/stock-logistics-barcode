@@ -106,6 +106,76 @@ div[name="move_line_ids"] {
     }
 }
 
+.btn-square {
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-square-rounded {
+    @extend .btn-square;
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+/* Barcode UI buttons: square, purple, elevated */
+.barcode-btn {
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    background: #5a4f7f;
+    color: #fff;
+    border: none;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Ensure square aspect for barcode buttons even when other btn classes inject padding */
+.barcode-btn.btn-square-rounded,
+.barcode-btn.btn-square {
+    width: 48px !important;
+    height: 48px !important;
+    padding: 0 !important;
+}
+
+.barcode-btn:hover,
+.barcode-btn:focus {
+    color: #5a4f7f;
+    background: #fff;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.18);
+}
+
+.barcode-btn-light {
+    background: #5a4f7f;
+    color: #fff;
+    border: 1px solid #5a4f7f;
+}
+
+.barcode-btn-light:hover,
+.barcode-btn-light:focus {
+    background: #5a4f7f;
+    color: #fff;
+}
+
+/* Prevent kanban cards from opening record dialogs when clicked; allow buttons inside */
+/* Disable record open on kanban cards while keeping inner buttons clickable */
+.o_kanban_record:has(.o_barcode_noopen) {
+    pointer-events: none;
+}
+
+.o_kanban_record:has(.o_barcode_noopen) .o_barcode_noopen .btn,
+.o_kanban_record:has(.o_barcode_noopen) .o_barcode_noopen button,
+.o_kanban_record:has(.o_barcode_noopen) .o_barcode_noopen a {
+    pointer-events: auto;
+}
+
 div.stock_barcodes_action_kanban {
     div.o_kanban_record {
         div.oe_kanban_content {

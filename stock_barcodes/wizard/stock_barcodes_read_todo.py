@@ -2,12 +2,13 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
 
 from odoo import api, fields, models
-from odoo.tools.float_utils import float_compare
+from odoo.tools.float_utils import float_compare, float_round
 
 
 class WizStockBarcodesReadTodo(models.TransientModel):
     _name = "wiz.stock.barcodes.read.todo"
     _description = "Wizard to read barcode todo"
+    _order = "completion_priority asc, state_priority asc, position_index asc, id asc"
 
     # To prevent remove the record wizard until 2 days old
     _transient_max_hours = 48
@@ -25,7 +26,12 @@ class WizStockBarcodesReadTodo(models.TransientModel):
         string="Scan State",
         default="pending",
         compute="_compute_state",
+        store=True,
         readonly=False,
+    )
+    state_priority = fields.Integer(compute="_compute_state_priority", store=True)
+    completion_priority = fields.Integer(
+        compute="_compute_completion_priority", store=True
     )
 
     product_qty_reserved = fields.Float(
@@ -38,10 +44,17 @@ class WizStockBarcodesReadTodo(models.TransientModel):
         digits="Product Unit of Measure",
         readonly=True,
     )
+    quantity = fields.Float(
+        "Quantity",
+        digits="Product Unit of Measure",
+        compute="_compute_quantity",
+        store=True,
+    )
     qty_done = fields.Float(
         "Done",
         digits="Product Unit of Measure",
         compute="_compute_qty_done",
+        store=True,
     )
     qty_done_rest = fields.Float(compute="_compute_qty_done_rest", store=True)
     location_id = fields.Many2one(comodel_name="stock.location")
@@ -66,6 +79,43 @@ class WizStockBarcodesReadTodo(models.TransientModel):
     is_extra_line = fields.Boolean()
     # Used in kanban view
     is_stock_move_line_origin = fields.Boolean()
+    is_focused = fields.Boolean(compute="_compute_is_focused")
+
+    @api.depends("state")
+    def _compute_state_priority(self):
+        for rec in self:
+            if rec.state == "pending":
+                rec.state_priority = 0
+            elif rec.state == "done":
+                rec.state_priority = 1
+            else:
+                rec.state_priority = 2
+
+    @api.depends("quantity", "product_uom_qty", "state", "uom_id")
+    def _compute_completion_priority(self):
+        for rec in self:
+            if rec.state in ("done", "done_forced"):
+                rec.completion_priority = 1
+                continue
+            if (
+                float_compare(
+                    rec.quantity,
+                    rec.product_uom_qty,
+                    precision_rounding=(rec.uom_id and rec.uom_id.rounding) or 0.01,
+                )
+                >= 0
+            ):
+                rec.completion_priority = 1
+            else:
+                rec.completion_priority = 0
+
+    @api.depends("wiz_barcode_id.focused_move_id", "stock_move_ids")
+    def _compute_is_focused(self):
+        for rec in self:
+            rec.is_focused = bool(
+                rec.wiz_barcode_id.focused_move_id
+                and rec.wiz_barcode_id.focused_move_id in rec.stock_move_ids
+            )
 
     @api.depends("qty_done", "product_uom_qty")
     def _compute_qty_done_rest(self):
@@ -101,6 +151,8 @@ class WizStockBarcodesReadTodo(models.TransientModel):
         self.wiz_barcode_id.fill_todo_records()
         self.wiz_barcode_id = wiz_barcode
         self.wiz_barcode_id.determine_todo_action()
+        self.wiz_barcode_id._refresh_todo_lines()
+        self.wiz_barcode_id._notify_qty_change()
 
     def action_reset_lines(self):
         self.state = "pending"
@@ -109,6 +161,8 @@ class WizStockBarcodesReadTodo(models.TransientModel):
         self.wiz_barcode_id.action_clean_values()
         self.wiz_barcode_id.fill_todo_records()
         self.wiz_barcode_id.determine_todo_action()
+        self.wiz_barcode_id._refresh_todo_lines()
+        self.wiz_barcode_id._notify_qty_change()
 
     def action_back_line(self):
         if self.position_index > 0:
@@ -120,10 +174,182 @@ class WizStockBarcodesReadTodo(models.TransientModel):
             record = self.wiz_barcode_id.todo_line_ids[self.position_index + 1]
             self.wiz_barcode_id.determine_todo_action(forced_todo_line=record)
 
+    def action_barcode_noop(self):
+        """Placeholder to avoid errors from UI buttons."""
+        return True
+
+    def _create_move_line(self, move, qty):
+        location = move.location_id
+        dest = move.location_dest_id
+        vals = {
+            "picking_id": move.picking_id.id,
+            "move_id": move.id,
+            "product_id": move.product_id.id,
+            "product_uom_id": move.product_uom.id,
+            "qty_picked": qty,
+            "quantity": qty,
+            "location_id": location.id,
+            "location_dest_id": dest.id,
+            "barcode_scan_state": "pending",
+        }
+        return self.env["stock.move.line"].create(vals)
+
+    def _adjust_quantity(self, delta):
+        self.ensure_one()
+        if not self.stock_move_ids:
+            return True
+
+        move = self.stock_move_ids[:1]
+        product = move.product_id
+        rounding = product.uom_id.rounding
+        multiplier = (
+            float(self.wiz_barcode_id.multiplier_factor or 1.0)
+            if product.tracking != "serial"
+            else 1.0
+        )
+        delta = delta * multiplier
+
+        # Select a target line (prefer one without lot for non-serial)
+        target_line = self.line_ids[:1]
+
+        def _find_existing_candidate():
+            return move.move_line_ids.filtered(
+                lambda l: l.product_id == product
+                and not l.lot_id
+                and not l.lot_name
+                and l.location_id == move.location_id
+                and l.location_dest_id == move.location_dest_id
+                and l.package_id == self.package_id
+                and l.result_package_id == self.result_package_id
+                and l.owner_id == move.move_orig_ids.mapped("picking_id.partner_id")[:1]
+            )[:1]
+
+        if delta > 0:
+            if product.tracking == "serial":
+                # Serial: create a new clean line with qty 1
+                new_line = self._create_move_line(move, 1.0)
+                self.line_ids |= new_line
+            else:
+                if target_line:
+                    new_qty = float_round(
+                        target_line.qty_picked + delta,
+                        precision_rounding=rounding,
+                    )
+                    target_line.write({"qty_picked": new_qty, "quantity": new_qty})
+                else:
+                    # Try to reuse an existing move line to avoid duplicate lines
+                    candidate = _find_existing_candidate()
+                    if candidate:
+                        target_line = candidate
+                        new_qty = float_round(
+                            target_line.qty_picked + delta,
+                            precision_rounding=rounding,
+                        )
+                        target_line.write({"qty_picked": new_qty, "quantity": new_qty})
+                        self.line_ids |= target_line
+                    else:
+                        new_line = self._create_move_line(
+                            move, float_round(delta, precision_rounding=rounding)
+                        )
+                        self.line_ids |= new_line
+        elif delta < 0:
+            if not target_line:
+                return True
+            if product.tracking == "serial":
+                # Drop link to keep the transient record alive in the view
+                self.line_ids = [(3, target_line.id, 0)]
+                target_line.unlink()
+            else:
+                new_qty = float_round(
+                    target_line.qty_picked + delta,
+                    precision_rounding=rounding,
+                )
+                if new_qty <= 0:
+                    self.line_ids = [(3, target_line.id, 0)]
+                    target_line.unlink()
+                else:
+                    target_line.write({"qty_picked": new_qty, "quantity": new_qty})
+        # Recompute aggregates so the todo card progress matches detailed move lines
+        self._compute_qty_done()
+        self._compute_quantity()
+        if not self.line_ids:
+            self.qty_done = 0.0
+            self.quantity = 0.0
+        self._compute_state()
+        self.invalidate_recordset()
+        self.wiz_barcode_id.invalidate_recordset()
+
+        # Notify UI listeners via bus so the kanban card refreshes without manual reload
+        if self.wiz_barcode_id:
+            payload = {
+                "type": "barcode_qty_change",
+                "wiz_id": self.wiz_barcode_id.id,
+            }
+            bus = self.env["bus.bus"]
+            try:
+                bus._sendone(self._cr.dbname, "stock_barcodes_scan", payload)
+            except TypeError:
+                bus._sendone("stock_barcodes_scan", payload)
+        return True
+
+    def action_barcode_add_one(self):
+        for rec in self:
+            rec._adjust_quantity(1.0)
+        return True
+
+    def action_barcode_remove_one(self):
+        for rec in self:
+            rec._adjust_quantity(-1.0)
+        return True
+
+    def action_barcode_complete_remaining(self):
+        for rec in self:
+            if not rec.product_id:
+                continue
+            remaining = rec.product_uom_qty - rec.quantity
+            if remaining <= 0:
+                continue
+            product = rec.product_id
+            multiplier = (
+                float(rec.wiz_barcode_id.multiplier_factor or 1.0)
+                if product.tracking != "serial"
+                else 1.0
+            )
+            delta = remaining if product.tracking == "serial" else remaining
+            # For serial, force unitary additions
+            if product.tracking == "serial":
+                for _i in range(int(delta)):
+                    rec._adjust_quantity(1.0)
+            else:
+                rec._adjust_quantity(delta / multiplier)
+        return True
+
+    def action_barcode_focus_move(self, todo_id=None):
+        self.ensure_one()
+        target_id = todo_id or self.id
+        self.wiz_barcode_id.action_focus_move(target_id)
+        return True
+
     @api.depends("line_ids.qty_picked")
     def _compute_qty_done(self):
         for rec in self:
             rec.qty_done = sum(rec.line_ids.mapped("qty_picked"))
+
+    @api.depends(
+        "line_ids.qty_picked",
+        "line_ids.quantity",
+        "stock_move_ids.move_line_ids.qty_picked",
+    )
+    def _compute_quantity(self):
+        for rec in self:
+            # Prefer aggregating over all move lines linked to the todo's moves to catch
+            # multiple lots/lines; fallback to the explicit line_ids if needed.
+            move_line_qty = sum(rec.stock_move_ids.mapped("move_line_ids.qty_picked"))
+            rec.quantity = (
+                move_line_qty
+                if move_line_qty
+                else sum(rec.line_ids.mapped("qty_picked"))
+            )
 
     @api.depends(
         "line_ids",

@@ -2,6 +2,8 @@
 # Copyright 2024 Tecnativa - Carlos Dauden
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl.html).
 
+from odoo import SUPERUSER_ID, api
+
 
 def pre_init_hook(env):
     env.cr.execute(
