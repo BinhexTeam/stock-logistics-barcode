@@ -68,7 +68,14 @@
                     icon="fa-camera fa-2x"
                     invisible="not show_delivery_proof or delivery_proof_level != 'picking'"
                     class="btn btn-secondary"
-                />
+                >
+                    <field
+                        name="picking_proof_count"
+                        invisible="picking_proof_count == 0"
+                        class="badge badge-primary position-absolute"
+                        style="vertical-align:super;padding:3px 6px;border-radius: 10px; right: -5px; font-weight: bold; color: #fff; background-color: #71639e;"
+                    />
+                </button>
             </xpath>
 
         </field>
