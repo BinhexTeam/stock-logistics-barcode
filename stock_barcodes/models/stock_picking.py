@@ -47,7 +47,12 @@ class StockPicking(models.Model):
 
     def button_validate(self):
         count_sign = self.get_count_sign_delivery_slip()
-        if count_sign == 0:
+        is_enable_signature = (
+            self.env.user.has_group("stock.group_stock_sign_delivery")
+            and self.picking_type_code == "outgoing"
+            and self.state != "done"
+        )
+        if is_enable_signature and count_sign == 0:
             raise UserError(
                 "You must sign the delivery slip before validate the picking."
             )
@@ -63,7 +68,8 @@ class StockPicking(models.Model):
         ):
             res = super(
                 StockPicking,
-                self.with_context(skip_backorder=context.get("skip_backorder", False)),
+                self.with_context(skip_backorder=context.get(
+                    "skip_backorder", False)),
             ).button_validate()
         else:
             res = super().button_validate()
@@ -72,7 +78,8 @@ class StockPicking(models.Model):
 
         if self.state == "done":
             self.env["bus.bus"]._sendone(
-                "stock_barcodes_scan", "actions_barcode", {"valid_picking": True}
+                "stock_barcodes_scan", "actions_barcode", {
+                    "valid_picking": True}
             )
 
         return res
