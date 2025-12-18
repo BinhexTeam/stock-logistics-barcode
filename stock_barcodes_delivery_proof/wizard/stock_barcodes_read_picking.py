@@ -9,6 +9,14 @@ class WizStockBarcodesReadPicking(models.TransientModel):
 
     # Computed fields for UI
     show_delivery_proof = fields.Boolean(compute="_compute_show_delivery_proof")
+    delivery_proof_level = fields.Selection(
+        related="picking_id.company_id.delivery_proof_level",
+        string="Delivery Proof Level",
+    )
+    picking_proof_count = fields.Integer(
+        related="picking_id.picking_proof_count",
+        string="Picking Photo Count",
+    )
 
     @api.depends("picking_type_code", "picking_id.company_id.delivery_proof_enabled")
     def _compute_show_delivery_proof(self):
@@ -39,33 +47,53 @@ class WizStockBarcodesReadPicking(models.TransientModel):
 
         return {
             "id": photo.id,
-            "capture_date": photo.capture_date.isoformat()
-            if photo.capture_date
-            else None,
+            "capture_date": (
+                photo.capture_date.isoformat() if photo.capture_date else None
+            ),
             "captured_by": photo.captured_by_id.name if photo.captured_by_id else None,
         }
 
     def action_save_delivery_photo_from_todo(self, todo_id, image_data):
-        """Save photo to ALL move lines associated with a todo item.
+        """Save photo based on company delivery_proof_level setting.
 
-        This creates duplicate photo records (same image) for each move line.
-        Useful when one photo applies to multiple lots/packages of same product.
+        - If 'move_line': Creates duplicate photo records for each move line in todo
+        - If 'picking': Creates single photo record at picking level
 
         Args:
-            todo_id (int): ID of wiz.stock.barcodes.read.todo
+            todo_id (int): ID of wiz.stock.barcodes.read.todo (optional for picking)
             image_data (str): Base64 encoded image data
 
         Returns:
             dict: {
                 'success': bool,
                 'photo_ids': list of created photo IDs,
-                'move_line_count': number of lines affected,
+                'move_line_count': number of lines affected (0 for picking mode),
                 'message': success/error message
             }
         """
         self.ensure_one()
-        todo = self.env["wiz.stock.barcodes.read.todo"].browse(todo_id)
 
+        # Check delivery proof level from company settings
+        proof_level = self.picking_id.company_id.delivery_proof_level
+
+        if proof_level == "picking":
+            # Save to picking level - NO todo_id required
+            photo = self.env["stock.delivery.proof.image"].create(
+                {
+                    "picking_id": self.picking_id.id,
+                    "image": image_data,
+                }
+            )
+            return {
+                "success": True,
+                "photo_ids": [photo.id],
+                "move_line_count": 0,
+                "message": "Photo saved to picking",
+                "mode": "picking",
+            }
+
+        # For move_line mode, we MUST have a valid todo
+        todo = self.env["wiz.stock.barcodes.read.todo"].browse(todo_id)
         if not todo.exists():
             return {
                 "success": False,
@@ -74,6 +102,7 @@ class WizStockBarcodesReadPicking(models.TransientModel):
                 "move_line_count": 0,
             }
 
+        # Default: save to move_line level
         if not todo.line_ids:
             return {
                 "success": False,
@@ -98,12 +127,14 @@ class WizStockBarcodesReadPicking(models.TransientModel):
             "photo_ids": photo_ids,
             "move_line_count": len(photo_ids),
             "message": f"Photo saved to {len(photo_ids)} move line(s)",
+            "mode": "move_line",
         }
 
     def get_todo_photo_data(self, todo_id):
-        """Get all photos from all move lines associated with a todo.
+        """Get all photos based on delivery_proof_level setting.
 
-        Returns aggregated list of all photos with metadata for gallery display.
+        - If 'picking': Returns all picking-level photos
+        - If 'move_line': Returns aggregated photos from all move lines in todo
 
         Args:
             todo_id (int): ID of wiz.stock.barcodes.read.todo
@@ -112,8 +143,8 @@ class WizStockBarcodesReadPicking(models.TransientModel):
             dict: {
                 'photos': list of photo dicts with metadata,
                 'total_count': total number of photos,
-                'lines_count': number of move lines,
-                'lines_with_photos': number of lines that have photos
+                'lines_count': number of move lines (0 for picking mode),
+                'lines_with_photos': number of lines that have photos (0 for picking)
             }
         """
         self.ensure_one()
@@ -127,6 +158,42 @@ class WizStockBarcodesReadPicking(models.TransientModel):
                 "lines_with_photos": 0,
             }
 
+        # Check delivery proof level
+        proof_level = self.picking_id.company_id.delivery_proof_level
+
+        if proof_level == "picking":
+            # Get picking-level photos
+            all_photos = []
+            for photo in self.picking_id.picking_proof_image_ids:
+                all_photos.append(
+                    {
+                        "id": photo.id,
+                        "capture_date": (
+                            photo.capture_date.isoformat()
+                            if photo.capture_date
+                            else None
+                        ),
+                        "captured_by": (
+                            photo.captured_by_id.name if photo.captured_by_id else None
+                        ),
+                        "picking_id": self.picking_id.id,
+                        "picking_name": self.picking_id.name,
+                        "model": "stock.delivery.proof.image",
+                    }
+                )
+
+            # Sort by capture_date (newest first)
+            all_photos.sort(key=lambda x: x["capture_date"] or "", reverse=True)
+
+            return {
+                "photos": all_photos,
+                "total_count": len(all_photos),
+                "lines_count": 0,
+                "lines_with_photos": 0,
+                "mode": "picking",
+            }
+
+        # Default: move_line level
         # Collect all photos from all move lines
         all_photos = []
         lines_with_photos = 0
@@ -139,28 +206,74 @@ class WizStockBarcodesReadPicking(models.TransientModel):
                 all_photos.append(
                     {
                         "id": photo.id,
-                        "capture_date": photo.capture_date.isoformat()
-                        if photo.capture_date
-                        else None,
-                        "captured_by": photo.captured_by_id.name
-                        if photo.captured_by_id
-                        else None,
+                        "capture_date": (
+                            photo.capture_date.isoformat()
+                            if photo.capture_date
+                            else None
+                        ),
+                        "captured_by": (
+                            photo.captured_by_id.name if photo.captured_by_id else None
+                        ),
                         "move_line_id": move_line.id,
                         "product_name": move_line.product_id.display_name,
                         "lot_name": move_line.lot_id.name if move_line.lot_id else None,
                         "qty": move_line.quantity,
                         "uom": move_line.product_uom_id.name,
+                        "model": "stock.delivery.proof.image",
                     }
                 )
 
         # Sort by capture date (newest first)
-        all_photos.sort(key=lambda x: x["capture_date"] or "", reverse=True)
+        all_photos.sort(key=lambda x: x.get("capture_date") or "", reverse=True)
 
         return {
             "photos": all_photos,
             "total_count": len(all_photos),
             "lines_count": len(todo.line_ids),
             "lines_with_photos": lines_with_photos,
+            "mode": "move_line",
+        }
+
+    def get_picking_photo_data(self):
+        """Get all photos for current picking (picking-level mode).
+
+        Returns:
+            dict: {
+                'photos': list of photo dicts with metadata,
+                'total_count': total number of photos,
+                'lines_count': 0 (not applicable for picking mode),
+                'lines_with_photos': 0 (not applicable for picking mode),
+                'mode': 'picking'
+            }
+        """
+        self.ensure_one()
+        all_photos = []
+
+        for photo in self.picking_id.picking_proof_image_ids:
+            all_photos.append(
+                {
+                    "id": photo.id,
+                    "capture_date": (
+                        photo.capture_date.isoformat() if photo.capture_date else None
+                    ),
+                    "captured_by": (
+                        photo.captured_by_id.name if photo.captured_by_id else None
+                    ),
+                    "picking_id": self.picking_id.id,
+                    "picking_name": self.picking_id.name,
+                    "model": "stock.delivery.proof.image",
+                }
+            )
+
+        # Sort by capture_date (newest first)
+        all_photos.sort(key=lambda x: x["capture_date"] or "", reverse=True)
+
+        return {
+            "photos": all_photos,
+            "total_count": len(all_photos),
+            "lines_count": 0,
+            "lines_with_photos": 0,
+            "mode": "picking",
         }
 
     def action_delete_delivery_photo(self, photo_id):
@@ -199,12 +312,12 @@ class WizStockBarcodesReadPicking(models.TransientModel):
             "photos": [
                 {
                     "id": photo.id,
-                    "capture_date": photo.capture_date.isoformat()
-                    if photo.capture_date
-                    else None,
-                    "captured_by": photo.captured_by_id.name
-                    if photo.captured_by_id
-                    else None,
+                    "capture_date": (
+                        photo.capture_date.isoformat() if photo.capture_date else None
+                    ),
+                    "captured_by": (
+                        photo.captured_by_id.name if photo.captured_by_id else None
+                    ),
                 }
                 for photo in move_line.delivery_proof_image_ids
             ],
@@ -245,5 +358,23 @@ class WizStockBarcodesReadPicking(models.TransientModel):
             "params": {
                 "todo_id": todo_id,
                 "wizard_id": self.id,
+                "mode": "move_line",
+            },
+        }
+
+    def action_open_picking_photos_modal(self):
+        """Open photo gallery modal for the picking.
+
+        This is called from the bottom bar camera button when in picking mode.
+        """
+        self.ensure_one()
+
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_delivery_proof_modal",
+            "params": {
+                "picking_id": self.picking_id.id,
+                "wizard_id": self.id,
+                "mode": "picking",
             },
         }

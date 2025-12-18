@@ -37,7 +37,7 @@ class StockMoveLine(models.Model):
             "name": "Delivery Proof Photos",
             "type": "ir.actions.act_window",
             "res_model": "stock.delivery.proof.image",
-            "view_mode": "kanban,tree,form",
+            "view_mode": "kanban",
             "domain": [("move_line_id", "=", self.id)],
             "context": {"default_move_line_id": self.id},
         }

@@ -12,6 +12,16 @@
                     documentation="/stock_barcodes_delivery_proof/readme/CONFIGURE.html"
                 >
                     <field name="delivery_proof_enabled" />
+                    <div class="content-group" invisible="not delivery_proof_enabled">
+                        <div class="row mt16">
+                            <label
+                                for="delivery_proof_level"
+                                string="Photo Storage Level"
+                                class="col-lg-3 o_light_label"
+                            />
+                            <field name="delivery_proof_level" />
+                        </div>
+                    </div>
                 </setting>
             </xpath>
         </field>

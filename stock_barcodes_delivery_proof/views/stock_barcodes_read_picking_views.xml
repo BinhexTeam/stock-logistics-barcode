@@ -19,6 +19,8 @@
                 position="after"
             >
                 <field name="show_delivery_proof" invisible="1" />
+                <field name="delivery_proof_level" invisible="1" />
+                <field name="picking_proof_count" invisible="1" />
             </xpath>
 
             <!-- Add delivery_proof_count field to pending_move_ids kanban -->
@@ -35,24 +37,38 @@
                 expr="//field[@name='pending_move_ids']//button[@name='action_barcode_inventory_quant_edit']"
                 position="after"
             >
-                <!-- Camera button appears after edit button, only when qty_picked > 0 -->
+                <!-- Camera button appears after edit button, only when qty_picked > 0 and mode is move_line -->
                 <button
                     name="action_open_line_photos_modal"
                     type="object"
-                    class="btn mt0 btn-delivery-camera-line ml-2"
+                    class="btn mt0 btn-delivery-camera-line ml-2 position-relative"
                     title="Delivery Photos"
                     context="{'wiz_barcode_id': parent.id, 'todo_id': id}"
-                    invisible="qty_picked == 0 or not parent.show_delivery_proof"
+                    invisible="qty_picked == 0 or not parent.show_delivery_proof or parent.delivery_proof_level == 'picking'"
                 >
-                    <div class="camera-button-wrapper">
-                        <span
-                            t-if="record.delivery_proof_count.raw_value > 0"
-                            class="badge badge-primary photo-badge"
-                            t-esc="record.delivery_proof_count.raw_value"
-                        />
-                        <i class="fa fa-camera fa-2x" />
-                    </div>
+                    <i class="fa fa-camera fa-2x" title="Delivery Photos" />
+                    <span
+                        t-if="record.delivery_proof_count.raw_value > 0"
+                        class="badge badge-primary position-absolute"
+                        style="top: -5px; right: -5px; font-size: 0.8em;"
+                        t-esc="record.delivery_proof_count.raw_value"
+                    />
                 </button>
+            </xpath>
+
+            <!-- Add camera button to bottom bar for picking-level mode -->
+            <xpath
+                expr="//div[hasclass('oe_stock_barcodes_bottombar')]//div[hasclass('dropup')]"
+                position="inside"
+            >
+                <button
+                    name="action_open_picking_photos_modal"
+                    type="object"
+                    title="Delivery Photos (Picking)"
+                    icon="fa-camera fa-2x"
+                    invisible="not show_delivery_proof or delivery_proof_level != 'picking'"
+                    class="btn btn-secondary"
+                />
             </xpath>
 
         </field>

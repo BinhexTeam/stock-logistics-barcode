@@ -24,10 +24,19 @@
                             <div>
                                 <i class="fa fa-images" />
                                 <strong t-esc="state.stats.total_count" /> photo(s)
-                                <span class="text-muted ml-2">
+                                <span
+                                    class="text-muted ml-2"
+                                    t-if="state.mode === 'move_line'"
+                                >
                                     for
                                     <t t-esc="state.stats.lines_count" />
                                     line(s)
+                                </span>
+                                <span
+                                    class="text-muted ml-2"
+                                    t-if="state.mode === 'picking'"
+                                >
+                                    for picking
                                 </span>
                             </div>
                             <button
@@ -71,7 +80,9 @@
                         <div class="photo-metadata mt-3 p-3 bg-light rounded">
                             <t t-if="state.photos.length > 0">
                                 <t t-set="currentPhoto" t-value="state.photos[0]" />
-                                <div class="row">
+
+                                <!-- Move line mode metadata -->
+                                <div class="row" t-if="state.mode === 'move_line'">
                                     <div class="col-6">
                                         <small class="text-muted">Product:</small>
                                         <br />
@@ -89,6 +100,20 @@
                                             <t t-esc="currentPhoto.qty" />
                                             <t t-esc="currentPhoto.uom" />
                                         </strong>
+                                    </div>
+                                </div>
+
+                                <!-- Picking mode metadata -->
+                                <div class="row" t-if="state.mode === 'picking'">
+                                    <div class="col-6">
+                                        <small class="text-muted">Picking:</small>
+                                        <br />
+                                        <strong t-esc="currentPhoto.picking_name" />
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted">Captured:</small>
+                                        <br />
+                                        <strong t-esc="currentPhoto.capture_date" />
                                     </div>
                                 </div>
                             </t>

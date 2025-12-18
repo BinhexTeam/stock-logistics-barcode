@@ -15,23 +15,100 @@
                     invisible="not show_delivery_proof"
                 >
                     <field name="show_delivery_proof" invisible="1" />
+                    <field name="delivery_proof_level" invisible="1" />
 
-                    <!-- Info message -->
-                    <div class="alert alert-info" role="alert">
-                        <p>
-                            <i class="fa fa-info-circle" />
-                            Delivery proof photos are captured per move line during the barcode scanning process.
-                            This tab shows only move lines that have at least one photo.
-                        </p>
-                    </div>
+                    <!-- Picking-level photos section -->
+                    <group
+                        string="Picking Level Photos"
+                        invisible="delivery_proof_level == 'move_line'"
+                    >
+                        <field
+                            name="picking_proof_image_ids"
+                            nolabel="1"
+                            colspan="2"
+                            context="{'default_picking_id': active_id}"
+                        >
+                            <kanban class="o_delivery_proof_kanban">
+                                <field name="id" />
+                                <field name="image" />
+                                <field name="capture_date" />
+                                <field name="captured_by_id" />
+                                <field name="picking_id" />
+                                <templates>
+                                    <t t-name="kanban-box">
+                                        <div class="o_delivery_proof_card">
+                                            <div class="o_card_image_container">
+                                                <img
+                                                    t-att-src="kanban_image('stock.delivery.proof.image', 'image', record.id.raw_value)"
+                                                    alt="Delivery proof"
+                                                    class="o_card_image"
+                                                />
+                                                <div class="o_card_image_overlay">
+                                                    <button
+                                                        name="action_open_gallery"
+                                                        type="object"
+                                                        class="btn btn-link o_gallery_zoom_btn"
+                                                        title="View Gallery"
+                                                    >
+                                                        <i
+                                                            class="fa fa-search-plus fa-3x"
+                                                            title="Zoom"
+                                                        />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="o_card_date">
+                                                <i
+                                                    class="fa fa-calendar"
+                                                    title="Capture Date"
+                                                />
+                                                <field
+                                                    name="capture_date"
+                                                    widget="datetime"
+                                                />
+                                            </div>
+                                            <div class="o_card_info_row">
+                                                <div class="o_card_info_col">
+                                                    <span
+                                                        class="o_card_label"
+                                                    >CAPTURED BY</span>
+                                                    <div class="o_card_value">
+                                                        <i
+                                                            class="fa fa-user"
+                                                            title="User"
+                                                        />
+                                                        <field name="captured_by_id" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="o_card_footer">
+                                                <button
+                                                    name="action_download_image"
+                                                    type="object"
+                                                    class="btn btn-link o_card_action_btn"
+                                                    title="Download"
+                                                >
+                                                    <i class="fa fa-download" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </t>
+                                </templates>
+                            </kanban>
+                        </field>
+                    </group>
 
-                    <!-- Display only move lines with photos -->
-                    <group string="Proof Photos">
+                    <!-- Move line-level photos section -->
+                    <group
+                        string="Move Line Level Photos"
+                        invisible="delivery_proof_level == 'picking'"
+                    >
+                        <!-- Display only move lines with photos -->
                         <field
                             name="move_lines_with_photos"
                             nolabel="1"
                             colspan="2"
-                            context="{'tree_view_ref': 'stock_barcodes_delivery_proof.view_move_line_delivery_proof_tree'}"
+                            options="{'no_create': True, 'no_open': True}"
                         >
                             <tree>
                                 <field name="product_id" />

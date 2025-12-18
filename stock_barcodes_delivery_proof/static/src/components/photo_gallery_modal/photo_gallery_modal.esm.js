@@ -10,8 +10,11 @@ export class PhotoGalleryModal extends Component {
     static template = "stock_barcodes_delivery_proof.PhotoGalleryModal";
     static components = {Dialog, CameraCapture, ImageCarousel};
     static props = {
-        todoId: Number,
+        todoId: {type: Number, optional: true},
+        pickingId: {type: Number, optional: true},
         wizardId: Number,
+        // Mode can be 'move_line' or 'picking'
+        mode: {type: String, optional: true},
         close: Function,
     };
 
@@ -25,6 +28,7 @@ export class PhotoGalleryModal extends Component {
             showCamera: false,
             loading: true,
             photosChanged: false,
+            mode: this.props.mode || "move_line",
             stats: {
                 total_count: 0,
                 lines_count: 0,
@@ -40,13 +44,26 @@ export class PhotoGalleryModal extends Component {
     async loadPhotos() {
         this.state.loading = true;
         try {
-            const result = await this.orm.call(
-                "wiz.stock.barcodes.read.picking",
-                "get_todo_photo_data",
-                [this.props.wizardId, this.props.todoId]
-            );
+            let result = null;
+
+            if (this.state.mode === "picking") {
+                // Picking mode: load picking-level photos
+                result = await this.orm.call(
+                    "wiz.stock.barcodes.read.picking",
+                    "get_picking_photo_data",
+                    [this.props.wizardId]
+                );
+            } else {
+                // Move line mode: load todo photos
+                result = await this.orm.call(
+                    "wiz.stock.barcodes.read.picking",
+                    "get_todo_photo_data",
+                    [this.props.wizardId, this.props.todoId]
+                );
+            }
 
             this.state.photos = result.photos || [];
+            this.state.mode = result.mode || this.state.mode;
             this.state.stats = {
                 total_count: result.total_count || 0,
                 lines_count: result.lines_count || 0,
@@ -83,11 +100,27 @@ export class PhotoGalleryModal extends Component {
 
     async onPhotoCapture(imageData) {
         try {
-            const result = await this.orm.call(
-                "wiz.stock.barcodes.read.picking",
-                "action_save_delivery_photo_from_todo",
-                [this.props.wizardId, this.props.todoId, imageData]
-            );
+            // In picking mode, we don't have a todo_id, so we need to handle it differently
+            // The wizard's action_save_delivery_photo_from_todo already handles both modes
+            // by checking the delivery_proof_level setting
+
+            let result = null;
+            if (this.state.mode === "picking") {
+                // For picking mode, we still call the same method but with a dummy todo_id
+                // The wizard will ignore it and save to picking level based on delivery_proof_level
+                result = await this.orm.call(
+                    "wiz.stock.barcodes.read.picking",
+                    "action_save_delivery_photo_from_todo",
+                    [this.props.wizardId, 0, imageData]
+                );
+            } else {
+                // Move line mode: pass the actual todo_id
+                result = await this.orm.call(
+                    "wiz.stock.barcodes.read.picking",
+                    "action_save_delivery_photo_from_todo",
+                    [this.props.wizardId, this.props.todoId, imageData]
+                );
+            }
 
             if (result.success) {
                 this.notification.add(result.message, {type: "success"});

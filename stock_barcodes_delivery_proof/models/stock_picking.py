@@ -12,6 +12,19 @@ class StockPicking(models.Model):
         compute="_compute_show_delivery_proof",
     )
 
+    delivery_proof_level = fields.Selection(related="company_id.delivery_proof_level")
+
+    # Picking-level photos (using unified model)
+    picking_proof_image_ids = fields.One2many(
+        "stock.delivery.proof.image",
+        "picking_id",
+        string="Delivery Proof Photos (Picking Level)",
+    )
+    picking_proof_count = fields.Integer(
+        compute="_compute_picking_proof_count",
+        string="Photo Count (Picking)",
+    )
+
     # Filtered move lines
     move_lines_with_photos = fields.Many2many(
         comodel_name="stock.move.line",
@@ -27,6 +40,11 @@ class StockPicking(models.Model):
                 picking.picking_type_code == "outgoing"
                 and picking.company_id.delivery_proof_enabled
             )
+
+    @api.depends("picking_proof_image_ids")
+    def _compute_picking_proof_count(self):
+        for picking in self:
+            picking.picking_proof_count = len(picking.picking_proof_image_ids)
 
     @api.depends("move_line_ids_without_package.delivery_proof_count")
     def _compute_move_lines_with_photos(self):

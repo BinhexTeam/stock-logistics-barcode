@@ -6,117 +6,78 @@
         <field name="name">stock.delivery.proof.image.kanban</field>
         <field name="model">stock.delivery.proof.image</field>
         <field name="arch" type="xml">
-            <kanban class="o_kanban_mobile">
+            <kanban class="o_delivery_proof_kanban">
                 <field name="id" />
                 <field name="image" />
                 <field name="capture_date" />
                 <field name="captured_by_id" />
                 <field name="move_line_id" />
+                <field name="picking_id" />
                 <field name="notes" />
                 <templates>
                     <t t-name="kanban-box">
-                        <div
-                            class="oe_kanban_global_click o_kanban_record_has_image_fill"
-                        >
-                            <!-- Image -->
-                            <div class="o_kanban_image">
+                        <div class="o_delivery_proof_card">
+                            <!-- Image Container with Zoom Overlay -->
+                            <div class="o_card_image_container">
                                 <img
                                     t-att-src="kanban_image('stock.delivery.proof.image', 'image', record.id.raw_value)"
                                     alt="Delivery proof"
-                                    class="o_image_128_max"
+                                    class="o_card_image"
                                 />
+                                <div class="o_card_image_overlay">
+                                    <button
+                                        name="action_open_gallery"
+                                        type="object"
+                                        class="btn btn-link o_gallery_zoom_btn"
+                                        title="View Gallery"
+                                    >
+                                        <i class="fa fa-search-plus fa-3x" />
+                                    </button>
+                                </div>
                             </div>
 
-                            <!-- Details -->
-                            <div class="oe_kanban_details">
-                                <!-- Capture date -->
-                                <div class="o_kanban_record_title">
-                                    <strong>
+                            <!-- Date -->
+                            <div class="o_card_date">
+                                <i class="fa fa-calendar" title="Capture Date" />
+                                <field name="capture_date" widget="datetime" />
+                            </div>
+
+                            <!-- Info Row: Captured By | Reference -->
+                            <div class="o_card_info_row">
+                                <div class="o_card_info_col">
+                                    <span class="o_card_label">CAPTURED BY</span>
+                                    <div class="o_card_value">
+                                        <i class="fa fa-user" title="User" />
+                                        <field name="captured_by_id" />
+                                    </div>
+                                </div>
+                                <div class="o_card_info_col">
+                                    <span class="o_card_label">REFERENCE</span>
+                                    <div class="o_card_value">
                                         <i
-                                            class="fa fa-calendar"
-                                            title="Capture date"
+                                            class="fa fa-file-text-o"
+                                            title="Reference"
                                         />
-                                        <field name="capture_date" widget="datetime" />
-                                    </strong>
+                                        <field name="move_line_id" />
+                                    </div>
                                 </div>
+                            </div>
 
-                                <!-- Captured by -->
-                                <div class="o_kanban_record_subtitle">
-                                    <i class="fa fa-user" title="Captured by" />
-                                    <field name="captured_by_id" />
-                                </div>
-
-                                <!-- Move line info -->
-                                <div class="o_kanban_record_subtitle text-muted">
-                                    <i class="fa fa-barcode" title="Move line" />
-                                    <field name="move_line_id" />
-                                </div>
-
-                                <!-- Notes (if any) -->
-                                <div
-                                    t-if="record.notes.raw_value"
-                                    class="mt-2 text-muted small"
+                            <!-- Footer: Action Buttons -->
+                            <div class="o_card_footer">
+                                <button
+                                    name="action_download_image"
+                                    type="object"
+                                    class="btn btn-link o_card_action_btn"
+                                    title="Download"
                                 >
-                                    <i class="fa fa-comment" title="Notes" />
-                                    <field name="notes" />
-                                </div>
+                                    <i class="fa fa-download" />
+                                </button>
                             </div>
                         </div>
                     </t>
                 </templates>
             </kanban>
-        </field>
-    </record>
-
-    <!-- Tree view for delivery proof images -->
-    <record id="view_stock_delivery_proof_image_tree" model="ir.ui.view">
-        <field name="name">stock.delivery.proof.image.tree</field>
-        <field name="model">stock.delivery.proof.image</field>
-        <field name="arch" type="xml">
-            <tree>
-                <field name="image" widget="image" options="{'size': [64, 64]}" />
-                <field name="capture_date" />
-                <field name="captured_by_id" />
-                <field name="move_line_id" />
-                <field name="notes" optional="hide" />
-            </tree>
-        </field>
-    </record>
-
-    <!-- Form view for delivery proof images -->
-    <record id="view_stock_delivery_proof_image_form" model="ir.ui.view">
-        <field name="name">stock.delivery.proof.image.form</field>
-        <field name="model">stock.delivery.proof.image</field>
-        <field name="arch" type="xml">
-            <form string="Delivery Proof Photo">
-                <sheet>
-                    <div class="oe_title">
-                        <h1>
-                            <field name="capture_date" readonly="1" />
-                        </h1>
-                    </div>
-                    <group>
-                        <group>
-                            <field name="move_line_id" readonly="1" />
-                            <field name="captured_by_id" readonly="1" />
-                        </group>
-                        <group>
-                            <field
-                                name="image"
-                                widget="image"
-                                class="oe_avatar"
-                                options="{'size': [256, 256]}"
-                            />
-                        </group>
-                    </group>
-                    <group>
-                        <field
-                            name="notes"
-                            placeholder="Add notes about this photo..."
-                        />
-                    </group>
-                </sheet>
-            </form>
         </field>
     </record>
 
@@ -127,8 +88,20 @@
         <field name="arch" type="xml">
             <search>
                 <field name="move_line_id" />
+                <field name="picking_id" />
                 <field name="captured_by_id" />
                 <field name="capture_date" />
+                <filter
+                    string="Per Move Line"
+                    name="per_move_line"
+                    domain="[('move_line_id', '!=', False)]"
+                />
+                <filter
+                    string="Per Picking"
+                    name="per_picking"
+                    domain="[('picking_id', '!=', False)]"
+                />
+                <separator />
                 <filter
                     string="Today"
                     name="today"
@@ -141,19 +114,24 @@
                 />
                 <group expand="1" string="Group By">
                     <filter
-                        string="Capture Date"
-                        name="capture_date"
-                        context="{'group_by':'capture_date:day'}"
-                    />
-                    <filter
-                        string="Captured By"
-                        name="captured_by"
-                        context="{'group_by':'captured_by_id'}"
+                        string="Picking"
+                        name="group_by_picking"
+                        context="{'group_by':'picking_id'}"
                     />
                     <filter
                         string="Move Line"
-                        name="move_line"
+                        name="group_by_move_line"
                         context="{'group_by':'move_line_id'}"
+                    />
+                    <filter
+                        string="Captured By"
+                        name="group_by_captured_by"
+                        context="{'group_by':'captured_by_id'}"
+                    />
+                    <filter
+                        string="Capture Date"
+                        name="group_by_capture_date"
+                        context="{'group_by':'capture_date:day'}"
                     />
                 </group>
             </search>
@@ -165,15 +143,32 @@
         <field name="name">Delivery Proof Photos</field>
         <field name="res_model">stock.delivery.proof.image</field>
         <field name="view_mode">kanban,tree,form</field>
+        <field name="context">{'search_default_this_week': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 No delivery proof photos yet
             </p>
             <p>
                 Delivery proof photos are captured during the barcode scanning process
-                for outgoing deliveries.
+                for outgoing deliveries. Photos can be stored per move line or per picking.
             </p>
         </field>
     </record>
+
+    <!-- Menu items -->
+    <menuitem
+        id="menu_delivery_proof_root"
+        name="Delivery Proof"
+        parent="stock.menu_stock_warehouse_mgmt"
+        sequence="99"
+    />
+
+    <menuitem
+        id="menu_delivery_proof_images"
+        name="All Photos"
+        parent="menu_delivery_proof_root"
+        action="action_stock_delivery_proof_image"
+        sequence="10"
+    />
 
 </odoo>

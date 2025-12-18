@@ -11,3 +11,7 @@ class ResConfigSettings(models.TransientModel):
         related="company_id.delivery_proof_enabled",
         readonly=False,
     )
+    delivery_proof_level = fields.Selection(
+        related="company_id.delivery_proof_level",
+        readonly=False,
+    )
