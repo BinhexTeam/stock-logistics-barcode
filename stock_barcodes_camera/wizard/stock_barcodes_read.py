@@ -170,53 +170,96 @@ class WizStockBarcodesRead(models.AbstractModel):
         return False
 
     def process_barcode(self, barcode):
+        self.ensure_one()
+        barcode = (barcode or "").strip()
+
+        # Mensaje base
         self._set_messagge_info("success", _("OK"))
+
+        # ------------------------------------------------------------
+        # PRIORIDAD 0: si este wizard tiene picking_id y está vacío,
+        # intenta resolver el picking SIEMPRE (independiente del step).
+        # Esto hace que el escaneo por cámara funcione aunque picking_id
+        # esté en Step 4 en options.
+        # ------------------------------------------------------------
+        if barcode and hasattr(self, "picking_id") and not self.picking_id:
+            fn = getattr(self, "process_barcode_picking_id", None)
+            if fn:
+                # Asegura coherencia: el resto de handlers leen self.barcode o context barcode
+                self.barcode = barcode
+                if self.with_context(barcode=barcode).process_barcode_picking_id():
+                    self.play_sounds(True)
+
+                    # Reglas estándar del flujo
+                    if not self.check_option_required():
+                        return False
+                    if self.is_manual_confirm or self.manual_entry:
+                        self._set_messagge_info("info", _("Review and confirm"))
+                        return False
+
+                    # Confirmación (avanza el step / acción del wizard)
+                    return self.action_confirm()
+
+        # ------------------------------------------------------------
+        # Flujo normal por step (tu lógica actual)
+        # ------------------------------------------------------------
         options = self.option_group_id.option_ids
         barcode_found = False
-        options_to_scan = options.filtered("to_scan")
+
+        options_to_scan = options.filtered("to_scan").filtered(lambda op: op.step == self.step)
         options_required = options.filtered("required")
-        options_to_scan = options_to_scan.filtered(lambda op: op.step == self.step)
+
         for option in options_to_scan:
+            # Saltar si ignore_filled_fields y el campo ya tiene valor
             if (
                 self.option_group_id.ignore_filled_fields
                 and option in options_required
                 and getattr(self, option.field_name, False)
             ):
                 continue
+
             option_func = getattr(
                 self.with_context(barcode=barcode),
                 "process_barcode_%s" % option.field_name,
                 False,
             )
-            if option_func:
-                res = option_func()
-                if res:
-                    barcode_found = True
-                    self.play_sounds(barcode_found)
-                    break
-                elif self.message_type != "success":
-                    self.play_sounds(False)
-                    return False
+            if not option_func:
+                continue
+
+            res = option_func()
+            if res:
+                barcode_found = True
+                self.play_sounds(True)
+                break
+
+            # Si el handler cambió el message_type != success, respeta ese error
+            if self.message_type != "success":
+                self.play_sounds(False)
+                return False
+
         if not barcode_found:
-            self.play_sounds(barcode_found)
+            self.play_sounds(False)
+
             if self.option_group_id.ignore_filled_fields:
-                self._set_messagge_info(
-                    "info", _("Barcode not found or field already filled")
-                )
+                self._set_messagge_info("info", _("Barcode not found or field already filled"))
             else:
-                self._set_messagge_info(
-                    "not_found", _("Barcode not found with this screen values")
-                )
+                self._set_messagge_info("not_found", _("Barcode not found with this screen values"))
+
+            # IMPORTANTE: notifica el barcode real recibido (no self.barcode viejo)
             self.display_notification(
-                self.barcode,
+                barcode,
                 message_type="danger",
                 title=_("Barcode not found"),
                 sticky=False,
             )
             return False
+
         if not self.check_option_required():
             return False
+
         if self.is_manual_confirm or self.manual_entry:
             self._set_messagge_info("info", _("Review and confirm"))
             return False
+
         return self.action_confirm()
+

@@ -1047,3 +1047,71 @@ class WizStockBarcodesReadPicking(models.TransientModel):
             candidate_picking.with_context(
                 wiz_barcode_id=self.id, picking_id=self.picking_id.id
             ).action_lock_picking()
+
+    def process_barcode_picking_id(self):
+        """
+        Permite escanear un Picking y asignarlo al wizard (picking_id)
+        incluso cuando el wizard todavía no tiene un picking bloqueado.
+
+        - Busca por picking.name (match exacto) y, si existe, por picking.barcode.
+        - Si hay más de un candidato: muestra 'more_match' y prepara candidate pickings.
+        - Si hay uno: lo asigna y refresca todo el flujo del wizard.
+        """
+        self.ensure_one()
+
+        # El barcode puede venir en self.barcode (porque lo escribes desde camera_barcode_scanner)
+        # o por contexto, o por parámetro.
+        barcode = (self.barcode or self.env.context.get("barcode") or "").strip()
+        if not barcode:
+            return False
+
+        Picking = self.env["stock.picking"].sudo()
+
+        # Dominio base: match por name, y si existe field 'barcode', también por barcode.
+        domain = [("name", "=", barcode)]
+        if "barcode" in Picking._fields:
+            domain = ["|", ("barcode", "=", barcode)] + domain
+
+        # Opcional: si estás trabajando por compañía en el wizard
+        if getattr(self, "company_id", False) and self.company_id:
+            domain = ["&", ("company_id", "=", self.company_id.id)] + domain
+
+        # Opcional: filtrar por tipo de operación si ya está definido en el wizard
+        # (en tu wizard picking_type_code existe como campo Selection).
+        if getattr(self, "picking_type_code", False):
+            domain = ["&", ("picking_type_code", "=", self.picking_type_code)] + domain
+
+        # Opcional: evitar pickings cancelados (y opcionalmente done si no quieres reabrir)
+        domain = ["&", ("state", "!=", "cancel")] + domain
+
+        pickings = Picking.search(domain, limit=5)
+
+        if not pickings:
+            return False
+
+        # Si hay múltiples, muestra candidatos para que el usuario seleccione
+        if len(pickings) > 1:
+            # Carga candidatos en el one2many para que la UI permita fijar uno
+            self._set_candidate_pickings(pickings)
+            self._set_messagge_info(
+                "more_match",
+                _("More than one picking found. Please lock the correct picking."),
+            )
+            return False
+
+        picking = pickings[:1]
+
+        # Asignar picking y preparar candidatos
+        self.picking_id = picking
+        self._set_candidate_pickings(picking)
+
+        # Refrescar “to-do” y guided step (esto es lo que hace que se “marque” y se vea)
+        if hasattr(self, "fill_pending_moves"):
+            self.fill_pending_moves()
+        if hasattr(self, "determine_todo_action"):
+            self.determine_todo_action()
+
+        # Si quieres: mensaje OK explícito (opcional)
+        # self._set_messagge_info("success", _("Picking locked"))
+
+        return True
