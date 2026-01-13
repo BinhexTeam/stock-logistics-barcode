@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates xml:space="preserve">
+    <t
+        t-name="stock_barcodes_owl_poc.extend_root_pass_adjust_handler"
+        t-inherit="stock_barcodes.BarcodeSessionRoot"
+        t-inherit-mode="extension"
+    >
+        <xpath expr="//BarcodeSessionMovesTable" position="attributes">
+            <attribute name="onAdjustMoveQty.bind">adjustMoveQty</attribute>
+        </xpath>
+    </t>
+
+    <t
+        t-name="stock_barcodes_owl_poc.extend_moves_table_qty_buttons"
+        t-inherit="stock_barcodes.BarcodeSessionMovesTable"
+        t-inherit-mode="extension"
+    >
+        <xpath expr="//tbody//tr/td[2]/span[1]" position="before">
+            <t t-if="props.onAdjustMoveQty">
+                <div class="btn-group btn-group-sm me-2" role="group">
+                    <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        t-on-click="() => props.onAdjustMoveQty(move, -1)"
+                        t-att-title="env._t('Decrease done quantity')"
+                    >
+                        <i class="fa fa-minus" />
+                    </button>
+                    <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        t-on-click="() => props.onAdjustMoveQty(move, 1)"
+                        t-att-title="env._t('Increase done quantity')"
+                    >
+                        <i class="fa fa-plus" />
+                    </button>
+                </div>
+            </t>
+        </xpath>
+    </t>
+</templates>
